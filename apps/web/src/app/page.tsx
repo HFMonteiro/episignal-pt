@@ -16,6 +16,7 @@ import {
 import { expectedFields } from "@/lib/reference";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { portugalDistrictShapes } from "@/lib/ptDistrictMap";
+import { portugalMunicipalityMapMeta, portugalMunicipalityShapesByDistrict, type MunicipalityMapShape } from "@/lib/ptMunicipalityMap";
 import { syntheticMunicipalitiesByDistrict } from "@/lib/ptMunicipalities";
 import type { CaseRecord, WeeklyResult } from "@/lib/types";
 import styles from "./page.module.css";
@@ -139,6 +140,7 @@ const copy = {
       title: "Casos por concelho",
       filterLabel: "Filtro por concelho",
       filterAction: "Filtrar",
+      officialSource: "Geometria concelhia: DGT CAOP2025 Continente, simplificada para visualização web.",
       breadcrumb: "Portugal -> {district} -> concelhos",
       empty: "Sem dados concelhios para este distrito nos filtros atuais."
     },
@@ -285,6 +287,7 @@ const copy = {
       title: "Cases by municipality",
       filterLabel: "Municipality filter",
       filterAction: "Filter",
+      officialSource: "Municipality geometry: DGT CAOP2025 Mainland Portugal, simplified for web display.",
       breadcrumb: "Portugal -> {district} -> municipalities",
       empty: "No municipality data for this district under the current filters."
     },
@@ -433,6 +436,26 @@ function buildStratumItems(rows: CaseRecord[], getLabel: (row: CaseRecord) => st
       signals: value.signals > 0 ? 1 : 0,
       signal: value.signals > 0
     }));
+}
+
+function buildMunicipalityItems(rows: CaseRecord[], shapes: MunicipalityMapShape[]): StratumItem[] {
+  const map = new Map<string, { label: string; cases: number; signals: number }>();
+  for (const shape of shapes) {
+    map.set(shape.municipality_id, { label: shape.municipality, cases: 0, signals: 0 });
+  }
+  for (const row of rows) {
+    const key = row.municipality_id || row.municipality || "unknown";
+    const current = map.get(key) ?? { label: row.municipality || key, cases: 0, signals: 0 };
+    current.cases += 1;
+    if (isSignalCase(row)) current.signals += 1;
+    map.set(key, current);
+  }
+  return [...map.values()].map((value) => ({
+    label: value.label,
+    cases: value.cases,
+    signals: value.signals > 0 ? 1 : 0,
+    signal: value.signals > 0
+  }));
 }
 
 function countSignalStrata(items: StratumItem[]): number {
@@ -909,6 +932,7 @@ function PortugalDistrictMap({
 function MunicipalityDrilldown({
   district,
   items,
+  shapes,
   periodText,
   pan,
   onBack,
@@ -919,6 +943,7 @@ function MunicipalityDrilldown({
   filterAction,
   casesLabel,
   flaggedLabel,
+  source,
   emptyLabel,
   zoom,
   controls,
@@ -928,6 +953,7 @@ function MunicipalityDrilldown({
 }: {
   district: string;
   items: StratumItem[];
+  shapes: MunicipalityMapShape[];
   periodText: string;
   pan: MapPan;
   onBack: () => void;
@@ -938,6 +964,7 @@ function MunicipalityDrilldown({
   filterAction: string;
   casesLabel: string;
   flaggedLabel: string;
+  source: string;
   emptyLabel: string;
   zoom: number;
   controls: ReactNode;
@@ -949,6 +976,8 @@ function MunicipalityDrilldown({
   const visibleItems = selectedMunicipality === "All"
     ? items
     : items.filter((item) => item.label === selectedMunicipality);
+  const byMunicipality = new Map(items.map((item) => [item.label, item]));
+  const visibleShapeNames = new Set(visibleItems.map((item) => item.label));
   return (
     <figure className={styles.mapPanel}>
       <figcaption>
@@ -969,26 +998,43 @@ function MunicipalityDrilldown({
         </label>
         {visibleItems.some((item) => item.cases > 0) ? (
           <div className={styles.municipalityViewport}>
-            <div className={styles.municipalityGrid} style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
-              {visibleItems.map((item) => (
-                <article className={`${styles.municipalityTile} ${item.signal ? styles.municipalitySignal : ""}`} key={item.label}>
-                  <strong>{item.label}</strong>
-                  <span>{item.cases} {casesLabel}</span>
-                  <div className={styles.strataTrack}>
-                    <div
-                      className={item.signal ? styles.strataBarSignal : styles.strataBar}
-                      style={{ width: `${Math.min(100, Math.max(4, (item.cases / maxCases) * 100))}%` }}
-                    />
-                  </div>
-                  {item.signal ? <em>{flaggedLabel}</em> : null}
-                  <button type="button" onClick={() => onSelectMunicipality(item.label)}>{filterAction}</button>
-                </article>
-              ))}
-            </div>
+            <svg viewBox={portugalMunicipalityMapMeta.viewBox} role="img" aria-label={`${title}, ${district}`}>
+              <g className={styles.portugalMap} style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
+                {shapes.map((shape) => {
+                  const item = byMunicipality.get(shape.municipality) ?? { label: shape.municipality, cases: 0, signals: 0, signal: false };
+                  const muted = selectedMunicipality !== "All" && !visibleShapeNames.has(shape.municipality);
+                  const regionClass = [
+                    styles.mapRegion,
+                    districtMapTone(item.cases, maxCases),
+                    item.signal ? styles.mapSignal : "",
+                    muted ? styles.mapMuted : ""
+                  ].filter(Boolean).join(" ");
+                  return (
+                    <path
+                      className={regionClass}
+                      d={shape.path}
+                      key={shape.municipality_id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => onSelectMunicipality(shape.municipality)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          onSelectMunicipality(shape.municipality);
+                        }
+                      }}
+                    >
+                      <title>{`${shape.municipality}: ${item.cases} ${casesLabel}${item.signal ? `, ${flaggedLabel}` : ""}`}</title>
+                    </path>
+                  );
+                })}
+              </g>
+            </svg>
           </div>
         ) : (
           <p className={styles.referenceIntro}>{emptyLabel}</p>
         )}
+        <p className={styles.mapSource}>{source}</p>
       </div>
     </figure>
   );
@@ -1331,10 +1377,16 @@ function HomeContent() {
   );
   const municipalityItems = useMemo(() => {
     if (!selectedMapDistrict) return [];
-    const order = (syntheticMunicipalitiesByDistrict[selectedMapDistrict] ?? []).map((area) => area.municipality);
+    const shapes = portugalMunicipalityShapesByDistrict[selectedMapDistrict] ?? [];
     const rows = detectionRows.filter((row) => row.district === selectedMapDistrict);
+    if (shapes.length) return buildMunicipalityItems(rows, shapes);
+    const order = (syntheticMunicipalitiesByDistrict[selectedMapDistrict] ?? []).map((area) => area.municipality);
     return buildStratumItems(rows, (row) => row.municipality || "unknown", order);
   }, [detectionRows, selectedMapDistrict]);
+  const municipalityShapes = useMemo(
+    () => selectedMapDistrict ? portugalMunicipalityShapesByDistrict[selectedMapDistrict] ?? [] : [],
+    [selectedMapDistrict]
+  );
   const signalStrata = useMemo(
     () => ({
       age_group: countSignalStrata(ageGroupItems),
@@ -1662,6 +1714,7 @@ function HomeContent() {
           <MunicipalityDrilldown
             district={selectedMapDistrict}
             items={municipalityItems}
+            shapes={municipalityShapes}
             periodText={periodText}
             zoom={mapZoom}
             pan={mapPan}
@@ -1672,6 +1725,7 @@ function HomeContent() {
             filterAction={t.mapDrilldown.filterAction}
             casesLabel={t.mapDrilldown.cases}
             flaggedLabel={t.mapDrilldown.flagged}
+            source={t.mapDrilldown.officialSource}
             emptyLabel={t.mapDrilldown.empty}
             selectedMunicipality={selectedMunicipality}
             onSelectMunicipality={setSelectedMunicipality}

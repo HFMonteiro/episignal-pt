@@ -6,7 +6,7 @@
     "dev": "next dev -p 8090",
     "build": "next build",
     "start": "next start -p 8090",
-    "prepare:caop-map": "python ../../scripts/prepare_caop_municipality_map.py",
+    "prepare:caop-map": "python ../../scripts/prepare_caop_municipality_map.py --output src/lib/ptMunicipalityMap.ts",
     "lint": "next lint"
   },
   "dependencies": {

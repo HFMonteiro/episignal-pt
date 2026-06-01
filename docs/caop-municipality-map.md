@@ -16,18 +16,17 @@ The application must not embed municipality SVGs copied from Wikimedia Commons o
 
 ## Output target
 
-The web app should consume a simplified static asset:
+The web app consumes a simplified static asset:
 
-- `apps/web/public/maps/pt-municipalities.geojson`, or
-- `apps/web/public/maps/pt-municipalities.topojson` if TopoJSON is added later.
+- `apps/web/src/lib/ptMunicipalityMap.ts`
 
-The generated file should include only the minimum public attributes needed for rendering and joining:
+The generated file includes only the minimum public attributes needed for rendering and joining:
 
 - `municipality_id`
 - `municipality`
 - `district_id`
 - `district`
-- `geometry`
+- simplified SVG `path`
 
 Do not include personal data, health data, surveillance counts, or operational identifiers in map assets.
 
@@ -45,10 +44,10 @@ Do not include personal data, health data, surveillance counts, or operational i
 The helper script is:
 
 ```powershell
-python scripts\prepare_caop_municipality_map.py --source C:\path\to\CAOP.gpkg --output apps\web\public\maps\pt-municipalities.geojson
+python scripts\prepare_caop_municipality_map.py --source C:\path\to\Continente_CAOP2025.gpkg --output apps\web\src\lib\ptMunicipalityMap.ts
 ```
 
-The script requires `ogr2ogr` from GDAL on `PATH`. It intentionally does not download CAOP itself; the operator must fetch the official source and check attribution/licence terms for the chosen release.
+The script uses `geopandas`/`shapely`, already available in the local Codex Python environment used for this project. It intentionally does not download CAOP itself; the operator must fetch the official source and check attribution/licence terms for the chosen release.
 
 ## Why not Wikimedia SVG as the primary source?
 
@@ -63,9 +62,10 @@ GEO API PT is useful for lookup and operational APIs, but its documentation iden
 Current app state:
 
 - District SVG map exists.
-- Municipality drilldown exists as synthetic placeholder data.
-- Real municipality geometry is not yet bundled.
+- Municipality drilldown uses DGT CAOP2025 Mainland Portugal municipality geometry simplified to SVG paths.
+- Case counts remain synthetic demonstration data.
+- Azores and Madeira geometry are not yet bundled.
 
 Next implementation step:
 
-- Download CAOP locally, run the helper script, inspect the generated properties, and wire the map renderer to the generated `municipality_id` geometries.
+- Extend the same pipeline to Azores and Madeira if the application scope moves beyond mainland districts.
