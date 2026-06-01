@@ -44,6 +44,8 @@ vignettes/*.pdf
 
 # pkgdown site
 docs/
+!docs/
+!docs/*.md
 
 # translation temp files
 po/*~
@@ -69,7 +71,6 @@ rsconnect/
 inst/doc
 /doc/
 /Meta/
-docs
 
 # R profiling outputs
 *.Rprof

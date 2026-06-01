@@ -1,0 +1,15 @@
+.next/
+node_modules/
+.env.local
+.vercel/
+*.tsbuildinfo
+next.out.log
+next.err.log
+test-results/
+
+# Keep institutional marks local unless explicit permission and endorsement are documented.
+public/EN_Co-Funded_by_the_EU_NEG_resized.png
+public/U4S_BLUE_Transparent_cropped.png
+public/dgs-logo.svg
+public/gov-portugal-logo.svg
+public/sns-logo.svg
