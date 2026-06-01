@@ -1696,6 +1696,8 @@ function HomeContent() {
             onSelectDistrict={(district) => {
               setSelectedMapDistrict(district);
               setMapLevel("municipality");
+              setMapZoom((current) => Math.max(current, 1.5));
+              setMapPan({ x: 0, y: 0 });
             }}
             controls={(
               <ChartControl
