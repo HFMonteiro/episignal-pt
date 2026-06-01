@@ -107,6 +107,7 @@ const copy = {
       title: "Controlos dos gráficos",
       timeWindow: "Semanas visíveis na série temporal",
       strataZoom: "Zoom visual dos estratos",
+      mapZoom: "Zoom visual do mapa",
       reset: "Repor zoom"
     },
     dataPanel: {
@@ -196,6 +197,7 @@ const copy = {
       title: "Chart controls",
       timeWindow: "Visible weeks in time series",
       strataZoom: "Visual zoom for strata",
+      mapZoom: "Visual map zoom",
       reset: "Reset zoom"
     },
     dataPanel: {
@@ -617,15 +619,69 @@ function districtMapTone(cases: number, maxCases: number): string {
   return styles.mapLow;
 }
 
-function PortugalDistrictMap({ areas, periodText }: { areas: StratumItem[]; periodText: string }) {
+function ChartControl({
+  label,
+  min,
+  max,
+  step,
+  value,
+  display,
+  onChange,
+  onReset,
+  resetLabel
+}: {
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  value: number;
+  display: string;
+  onChange: (value: number) => void;
+  onReset: () => void;
+  resetLabel: string;
+}) {
+  return (
+    <div className={styles.inlineChartControls}>
+      <label>
+        <span>{label}</span>
+        <input
+          type="range"
+          aria-label={label}
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(event) => onChange(Number(event.target.value))}
+        />
+        <em>{display}</em>
+      </label>
+      <button type="button" onClick={onReset}>{resetLabel}</button>
+    </div>
+  );
+}
+
+function PortugalDistrictMap({
+  areas,
+  periodText,
+  zoom,
+  controls
+}: {
+  areas: StratumItem[];
+  periodText: string;
+  zoom: number;
+  controls: ReactNode;
+}) {
   const byArea = new Map(areas.map((area) => [area.label, area]));
   const maxCases = Math.max(1, ...areas.map((area) => area.cases));
   return (
     <figure className={styles.mapPanel}>
-      <figcaption>Cases by district, {periodText}</figcaption>
+      <figcaption>
+        <span>Cases by district, {periodText}</span>
+        {controls}
+      </figcaption>
       <div className={styles.svgMapWrap}>
         <svg viewBox="0 0 379.499 547.489" role="img" aria-label="Portugal district SVG map with case intensity and signals">
-          <g className={styles.portugalMap}>
+          <g className={styles.portugalMap} style={{ transform: `scale(${zoom})` }}>
             {portugalDistrictShapes.map((shape) => {
               const area = byArea.get(shape.label) ?? { label: shape.label, cases: 0, signals: 0, signal: false };
               const regionClass = [
@@ -664,18 +720,23 @@ function GroupedBarChart({
   items,
   max,
   showSignalCounts,
-  zoom
+  zoom,
+  controls
 }: {
   title: string;
   items: StratumItem[];
   max: number;
   showSignalCounts: boolean;
   zoom: number;
+  controls: ReactNode;
 }) {
   const denominator = Math.max(1, max / Math.max(0.5, zoom));
   return (
     <figure className={styles.barPanel}>
-      <figcaption>{title}</figcaption>
+      <figcaption>
+        <span>{title}</span>
+        {controls}
+      </figcaption>
       <div className={styles.legend}>
         <span><i className={styles.signalKey} /> Synthetic outbreak flag</span>
         <span><i className={styles.noSignalKey} /> No synthetic flag</span>
@@ -767,11 +828,13 @@ function lineSegments(
 function TimeSeriesChart({
   results,
   detectionWeeks,
-  visibleWeeksTarget
+  visibleWeeksTarget,
+  controls
 }: {
   results: WeeklyResult[];
   detectionWeeks: number;
   visibleWeeksTarget: number;
+  controls: ReactNode;
 }) {
   const width = 920;
   const height = 330;
@@ -803,6 +866,7 @@ function TimeSeriesChart({
     <figure className={styles.timeSeriesPanel}>
       <figcaption>
         <span>Weekly signal model view</span>
+        {controls}
         <small>
           {hiddenWeeks > 0 ? `Showing last ${visibleResults.length} of ${results.length} ISO weeks. ` : ""}
           Detection window: last {detectionWeeks} weeks.
@@ -921,7 +985,9 @@ function HomeContent() {
   const [alphaUpper, setAlphaUpper] = useState(0.05);
   const [minCasesSignal, setMinCasesSignal] = useState(1);
   const [timeWindowWeeks, setTimeWindowWeeks] = useState(52);
-  const [strataZoom, setStrataZoom] = useState(1);
+  const [mapZoom, setMapZoom] = useState(1);
+  const [ageGroupZoom, setAgeGroupZoom] = useState(1);
+  const [sexZoom, setSexZoom] = useState(1);
   const [reportTitle, setReportTitle] = useState("Signal Detection Report");
   const [reportFormat, setReportFormat] = useState("HTML");
   const [includeTables, setIncludeTables] = useState(true);
@@ -1204,51 +1270,93 @@ function HomeContent() {
         {t.messages.description} {language === "pt" ? `Janela: ${detectionWeeks} semanas.` : `Window: ${detectionWeeks} weeks.`}
       </p>
 
-      <section className={styles.chartControls} hidden={activeSection !== "signals"} aria-label={t.chartControls.title}>
-        <strong>{t.chartControls.title}</strong>
-        <label>
-          <span>{t.chartControls.timeWindow}</span>
-          <input
-            type="range"
-            aria-label={t.chartControls.timeWindow}
-            min={timeWindowMin}
-            max={timeWindowMax}
-            step="1"
-            value={effectiveTimeWindowWeeks}
-            onChange={(event) => setTimeWindowWeeks(Number(event.target.value))}
-          />
-          <em>{effectiveTimeWindowWeeks} / {timeWindowMax}</em>
-        </label>
-        <label>
-          <span>{t.chartControls.strataZoom}</span>
-          <input
-            type="range"
-            aria-label={t.chartControls.strataZoom}
-            min="0.5"
-            max="2.5"
-            step="0.1"
-            value={strataZoom}
-            onChange={(event) => setStrataZoom(Number(event.target.value))}
-          />
-          <em>{strataZoom.toFixed(1)}x</em>
-        </label>
-        <button type="button" onClick={() => {
-          setTimeWindowWeeks(52);
-          setStrataZoom(1);
-        }}>
-          {t.chartControls.reset}
-        </button>
-      </section>
-
       <section id="signals" className={styles.signalsGrid} hidden={activeSection !== "signals"}>
-        {selectedStrata.includes("district") ? <PortugalDistrictMap areas={districtItems} periodText={periodText} /> : null}
-        {selectedStrata.includes("age_group") ? <GroupedBarChart title={`Cases by age group, ${periodText}`} items={ageGroupItems} max={ageGroupMax} showSignalCounts={showSignalCounts} zoom={strataZoom} /> : null}
-        {selectedStrata.includes("sex") ? <GroupedBarChart title={`Cases by sex, ${periodText}`} items={sexItems} max={sexMax} showSignalCounts={showSignalCounts} zoom={strataZoom} /> : null}
+        {selectedStrata.includes("district") ? (
+          <PortugalDistrictMap
+            areas={districtItems}
+            periodText={periodText}
+            zoom={mapZoom}
+            controls={(
+              <ChartControl
+                label={t.chartControls.mapZoom}
+                min={0.8}
+                max={1.8}
+                step={0.1}
+                value={mapZoom}
+                display={`${mapZoom.toFixed(1)}x`}
+                onChange={setMapZoom}
+                onReset={() => setMapZoom(1)}
+                resetLabel={t.chartControls.reset}
+              />
+            )}
+          />
+        ) : null}
+        {selectedStrata.includes("age_group") ? (
+          <GroupedBarChart
+            title={`Cases by age group, ${periodText}`}
+            items={ageGroupItems}
+            max={ageGroupMax}
+            showSignalCounts={showSignalCounts}
+            zoom={ageGroupZoom}
+            controls={(
+              <ChartControl
+                label={t.chartControls.strataZoom}
+                min={0.5}
+                max={2.5}
+                step={0.1}
+                value={ageGroupZoom}
+                display={`${ageGroupZoom.toFixed(1)}x`}
+                onChange={setAgeGroupZoom}
+                onReset={() => setAgeGroupZoom(1)}
+                resetLabel={t.chartControls.reset}
+              />
+            )}
+          />
+        ) : null}
+        {selectedStrata.includes("sex") ? (
+          <GroupedBarChart
+            title={`Cases by sex, ${periodText}`}
+            items={sexItems}
+            max={sexMax}
+            showSignalCounts={showSignalCounts}
+            zoom={sexZoom}
+            controls={(
+              <ChartControl
+                label={t.chartControls.strataZoom}
+                min={0.5}
+                max={2.5}
+                step={0.1}
+                value={sexZoom}
+                display={`${sexZoom.toFixed(1)}x`}
+                onChange={setSexZoom}
+                onReset={() => setSexZoom(1)}
+                resetLabel={t.chartControls.reset}
+              />
+            )}
+          />
+        ) : null}
         {selectedStrata.length === 0 ? <article className={styles.panel}>Select at least one stratum in Input parameters.</article> : null}
       </section>
 
       <section hidden={activeSection !== "signals"}>
-        <TimeSeriesChart results={results} detectionWeeks={detectionWeeks} visibleWeeksTarget={effectiveTimeWindowWeeks} />
+        <TimeSeriesChart
+          results={results}
+          detectionWeeks={detectionWeeks}
+          visibleWeeksTarget={effectiveTimeWindowWeeks}
+          controls={(
+            <ChartControl
+              label={t.chartControls.timeWindow}
+              min={timeWindowMin}
+              max={timeWindowMax}
+              step={1}
+              value={effectiveTimeWindowWeeks}
+              display={`${effectiveTimeWindowWeeks} / ${timeWindowMax}`}
+              onChange={setTimeWindowWeeks}
+              onReset={() => setTimeWindowWeeks(52)}
+              resetLabel={t.chartControls.reset}
+            />
+          )}
+        />
       </section>
 
       <section id="report" className={styles.lowerGrid} hidden={activeSection !== "report"}>

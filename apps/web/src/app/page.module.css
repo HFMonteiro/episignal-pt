@@ -306,6 +306,9 @@
 
 .mapPanel figcaption,
 .barPanel figcaption {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
   color: #111827;
   font-size: 16px;
   text-align: left;
@@ -313,6 +316,11 @@
   padding: 12px 18px;
   min-height: 64px;
   border-bottom: 1px solid #e2e2e2;
+}
+
+.mapPanel figcaption > span,
+.barPanel figcaption > span {
+  min-width: 0;
 }
 
 .barPanel svg {
@@ -635,9 +643,9 @@
 }
 
 .timeSeriesPanel figcaption {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(220px, 0.7fr) minmax(280px, 1fr) minmax(220px, 0.8fr);
+  align-items: center;
   gap: 16px;
   padding: 16px 20px 10px;
   color: #172033;
@@ -1050,8 +1058,14 @@
   text-decoration: underline;
 }
 
-.chartControls {
+.chartControls,
+.inlineChartControls {
   display: grid;
+  align-items: center;
+  gap: 10px;
+}
+
+.chartControls {
   grid-template-columns: auto minmax(220px, 1fr) minmax(220px, 1fr) auto;
   align-items: center;
   gap: 14px;
@@ -1067,9 +1081,10 @@
   font-size: 13px;
 }
 
-.chartControls label {
+.chartControls label,
+.inlineChartControls label {
   display: grid;
-  grid-template-columns: minmax(120px, max-content) minmax(120px, 1fr) 52px;
+  grid-template-columns: minmax(98px, max-content) minmax(92px, 1fr) minmax(42px, max-content);
   align-items: center;
   gap: 10px;
   color: #344054;
@@ -1077,18 +1092,21 @@
   font-weight: 800;
 }
 
-.chartControls input[type="range"] {
+.chartControls input[type="range"],
+.inlineChartControls input[type="range"] {
   width: 100%;
   accent-color: #3d5b98;
 }
 
-.chartControls em {
+.chartControls em,
+.inlineChartControls em {
   color: #58677c;
   font-style: normal;
   text-align: right;
 }
 
-.chartControls button {
+.chartControls button,
+.inlineChartControls button {
   min-height: 34px;
   border: 1px solid #cfd9e5;
   border-radius: 6px;
@@ -1096,6 +1114,26 @@
   color: #244178;
   font-weight: 800;
   cursor: pointer;
+}
+
+.inlineChartControls {
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 8px 10px;
+  border: 1px solid #d8e0eb;
+  border-radius: 7px;
+  background: #f8fbfd;
+}
+
+.inlineChartControls span {
+  color: #344054;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.inlineChartControls button {
+  min-height: 28px;
+  padding: 4px 8px;
+  font-size: 11px;
 }
 
 .methodNote {
@@ -1225,13 +1263,20 @@
     grid-template-columns: 1fr;
   }
 
-  .chartControls label {
+  .chartControls label,
+  .inlineChartControls,
+  .inlineChartControls label {
     grid-template-columns: 1fr;
     gap: 6px;
   }
 
-  .chartControls em {
+  .chartControls em,
+  .inlineChartControls em {
     text-align: left;
+  }
+
+  .timeSeriesPanel figcaption {
+    grid-template-columns: 1fr;
   }
 
   .mapPanel,
