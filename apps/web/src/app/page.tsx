@@ -36,6 +36,7 @@ type NavTab =
 
 type StrataKey = "district" | "age_group" | "sex";
 type MapLevel = "district" | "municipality";
+type MapPan = { x: number; y: number };
 
 const copy = {
   pt: {
@@ -111,11 +112,33 @@ const copy = {
       timeWindow: "Semanas visíveis na série temporal",
       strataZoom: "Zoom visual dos estratos",
       mapZoom: "Zoom visual do mapa",
-      reset: "Repor zoom"
+      reset: "Repor zoom",
+      pan: "Mover mapa",
+      panUp: "Mover para cima",
+      panDown: "Mover para baixo",
+      panLeft: "Mover para a esquerda",
+      panRight: "Mover para a direita",
+      panUpShort: "Cima",
+      panDownShort: "Baixo",
+      panLeftShort: "Esq.",
+      panRightShort: "Dir."
     },
     mapDrilldown: {
+      districtTitle: "Casos por distrito",
+      ariaLabel: "Mapa SVG de distritos de Portugal com intensidade de casos e sinais",
+      zeroCases: "0 casos",
+      cases: "casos",
+      low: "baixo",
+      medium: "médio",
+      high: "alto",
+      flagged: "com flag",
+      signalFlag: "Flag sintética de surto",
+      source: "Geometria distrital adaptada do SVG público Wikimedia Commons Portuguese Districts Map With Names.",
       hint: "Clique num distrito para ver concelhos sintéticos.",
       back: "Voltar a distritos",
+      title: "Casos por concelho",
+      filterLabel: "Filtro por concelho",
+      filterAction: "Filtrar",
       breadcrumb: "Portugal -> {district} -> concelhos",
       empty: "Sem dados concelhios para este distrito nos filtros atuais."
     },
@@ -125,14 +148,41 @@ const copy = {
       unused: "Colunas não usadas diretamente",
       quality: "Qualidade dos dados",
       uploaded: "Dados carregados",
-      structure: "Estrutura esperada do dataset"
+      structure: "Estrutura esperada do dataset",
+      rowsLoaded: "linhas carregadas",
+      rowsAfterFilters: "linhas após os filtros atuais",
+      mandatoryPass: "Todos os campos obrigatórios passam as verificações atuais do protótipo.",
+      noneDetected: "Nenhuma detetada.",
+      missingMandatory: "Linhas com campos obrigatórios em falta",
+      missingAge: "idade/age_group em falta",
+      negativeAges: "idades negativas",
+      structureIntro: "Esta versão aceita uma line-list CSV de casos e agrega-a por semanas ISO. As taxas brutas só são mostradas quando existe uma fonte de denominador suportada para os filtros selecionados; line-lists de casos carregadas isoladamente ficam apenas em contagens. FarringtonFlexible e GLM são encaminhados pelo R bridge local, enquanto EARS e CUSUM permanecem protótipos nativos.",
+      field: "Campo",
+      required: "Obrigatório",
+      type: "Tipo",
+      definition: "Definição"
     },
     report: {
       weekly: "Output semanal de sinais",
       download: "Descarregar relatório",
       title: "Título do relatório",
       format: "Formato",
-      includeTables: "Incluir tabelas de sinais por estrato"
+      includeTables: "Incluir tabelas de sinais por estrato",
+      none: "Nenhum",
+      minDate: "mín",
+      maxDate: "máx",
+      scopePrefix: "Âmbito",
+      stratifiedBy: "estratificado por",
+      method: "Método",
+      denominator: "Denominadores/taxas",
+      denominatorText: "as taxas brutas por 100 mil só são mostradas quando os filtros do numerador e o âmbito do denominador são explícitos; line-lists carregadas isoladamente ficam apenas em contagens.",
+      prototypeLimits: "Limites do protótipo",
+      prototypeText: "FarringtonFlexible e GLM são servidos pelo R bridge local; EARS e CUSUM permanecem protótipos nativos.",
+      currentFilters: "Filtros atuais",
+      district: "distrito",
+      municipality: "concelho",
+      sex: "sexo",
+      dates: "datas"
     }
   },
   en: {
@@ -208,11 +258,33 @@ const copy = {
       timeWindow: "Visible weeks in time series",
       strataZoom: "Visual zoom for strata",
       mapZoom: "Visual map zoom",
-      reset: "Reset zoom"
+      reset: "Reset zoom",
+      pan: "Move map",
+      panUp: "Move up",
+      panDown: "Move down",
+      panLeft: "Move left",
+      panRight: "Move right",
+      panUpShort: "Up",
+      panDownShort: "Down",
+      panLeftShort: "Left",
+      panRightShort: "Right"
     },
     mapDrilldown: {
+      districtTitle: "Cases by district",
+      ariaLabel: "Portugal district SVG map with case intensity and signals",
+      zeroCases: "0 cases",
+      cases: "cases",
+      low: "low",
+      medium: "medium",
+      high: "high",
+      flagged: "flagged",
+      signalFlag: "Synthetic outbreak flag",
+      source: "District geometry adapted from the public-domain Wikimedia Commons SVG Portuguese Districts Map With Names.",
       hint: "Click a district to view synthetic municipalities.",
       back: "Back to districts",
+      title: "Cases by municipality",
+      filterLabel: "Municipality filter",
+      filterAction: "Filter",
       breadcrumb: "Portugal -> {district} -> municipalities",
       empty: "No municipality data for this district under the current filters."
     },
@@ -222,14 +294,41 @@ const copy = {
       unused: "Columns not used directly",
       quality: "Data quality",
       uploaded: "Uploaded Data",
-      structure: "Dataset variable structure"
+      structure: "Dataset variable structure",
+      rowsLoaded: "rows loaded",
+      rowsAfterFilters: "rows after current filters",
+      mandatoryPass: "All mandatory fields pass the current prototype checks.",
+      noneDetected: "None detected.",
+      missingMandatory: "Missing mandatory rows",
+      missingAge: "missing age/age_group",
+      negativeAges: "negative ages",
+      structureIntro: "This version accepts a case line-list CSV and aggregates it to ISO weeks. Crude rates are shown only when a supported denominator source is configured for the selected filters; uploaded case line-lists alone are counts-only. FarringtonFlexible and GLM are routed through the local R bridge, while EARS and CUSUM remain native prototypes.",
+      field: "Field",
+      required: "Required",
+      type: "Type",
+      definition: "Definition"
     },
     report: {
       weekly: "Weekly signal output",
       download: "Download Report",
       title: "Report Title",
       format: "Format",
-      includeTables: "Include signals tables for strata"
+      includeTables: "Include signals tables for strata",
+      none: "None",
+      minDate: "min",
+      maxDate: "max",
+      scopePrefix: "Scope",
+      stratifiedBy: "stratified by",
+      method: "Method",
+      denominator: "Denominator/rates",
+      denominatorText: "crude rates per 100k are shown only when numerator filters and denominator scope are explicit; uploaded case line-lists alone remain counts-only.",
+      prototypeLimits: "Prototype limits",
+      prototypeText: "FarringtonFlexible and GLM are served through the local R bridge; EARS and CUSUM remain native prototypes.",
+      currentFilters: "Current filters",
+      district: "district",
+      municipality: "municipality",
+      sex: "sex",
+      dates: "dates"
     }
   }
 } satisfies Record<Language, Record<string, unknown>>;
@@ -299,11 +398,11 @@ function isoWeekLabel(dateText: string): string {
   return value ? `${value.year}-W${String(value.week).padStart(2, "0")}` : dateText;
 }
 
-function detectionPeriodLabel(rows: CaseRecord[], fallbackFrom: string, fallbackTo: string): string {
+function detectionPeriodLabel(rows: CaseRecord[], fallbackFrom: string, fallbackTo: string, language: Language): string {
   const from = minDate(rows) || fallbackFrom;
   const to = maxDate(rows) || fallbackTo;
   if (!from && !to) return "n/a";
-  if (from && to) return `${isoWeekLabel(from)} to ${isoWeekLabel(to)}`;
+  if (from && to) return `${isoWeekLabel(from)} ${language === "pt" ? "a" : "to"} ${isoWeekLabel(to)}`;
   return isoWeekLabel(from || to);
 }
 
@@ -367,6 +466,16 @@ function methodDisabledReason(value: string, weeksAvailable: number): string {
   if (value === "glm") return `requires >=104 historical weeks; current ${weeksAvailable}`;
   if (value === "ears") return `requires >=26 historical weeks; current ${weeksAvailable}`;
   return `requires >=1 historical week; current ${weeksAvailable}`;
+}
+
+function fieldRequiredText(field: (typeof expectedFields)[number], language: Language): string {
+  if (language === "pt") return field.requiredPt ?? field.required;
+  return field.required;
+}
+
+function fieldDescriptionText(field: (typeof expectedFields)[number], language: Language): string {
+  if (language === "pt") return field.descriptionPt ?? field.description;
+  return field.description;
 }
 
 function initialLanguage(): Language {
@@ -676,19 +785,66 @@ function ChartControl({
   );
 }
 
+function MapPanControl({
+  labels,
+  disabled,
+  onPan
+}: {
+  labels: {
+    pan: string;
+    panUp: string;
+    panDown: string;
+    panLeft: string;
+    panRight: string;
+    panUpShort: string;
+    panDownShort: string;
+    panLeftShort: string;
+    panRightShort: string;
+  };
+  disabled: boolean;
+  onPan: (dx: number, dy: number) => void;
+}) {
+  return (
+    <div className={styles.mapPanControls} aria-label={labels.pan}>
+      <button type="button" disabled={disabled} onClick={() => onPan(0, 34)} aria-label={labels.panUp}>{labels.panUpShort}</button>
+      <button type="button" disabled={disabled} onClick={() => onPan(34, 0)} aria-label={labels.panLeft}>{labels.panLeftShort}</button>
+      <button type="button" disabled={disabled} onClick={() => onPan(-34, 0)} aria-label={labels.panRight}>{labels.panRightShort}</button>
+      <button type="button" disabled={disabled} onClick={() => onPan(0, -34)} aria-label={labels.panDown}>{labels.panDownShort}</button>
+    </div>
+  );
+}
+
 function PortugalDistrictMap({
   areas,
   periodText,
   zoom,
+  pan,
   controls,
+  title,
+  ariaLabel,
   hint,
+  legend,
+  source,
   onSelectDistrict
 }: {
   areas: StratumItem[];
   periodText: string;
   zoom: number;
+  pan: MapPan;
   controls: ReactNode;
+  title: string;
+  ariaLabel: string;
   hint: string;
+  legend: {
+    zeroCases: string;
+    cases: string;
+    low: string;
+    medium: string;
+    high: string;
+    flagged: string;
+    signalFlag: string;
+  };
+  source: string;
   onSelectDistrict: (district: string) => void;
 }) {
   const byArea = new Map(areas.map((area) => [area.label, area]));
@@ -696,53 +852,55 @@ function PortugalDistrictMap({
   return (
     <figure className={styles.mapPanel}>
       <figcaption>
-        <span>Cases by district, {periodText}</span>
+        <span>{title}, {periodText}</span>
         {controls}
       </figcaption>
       <div className={styles.svgMapWrap}>
         <p className={styles.mapSource}>{hint}</p>
-        <svg viewBox="0 0 379.499 547.489" role="img" aria-label="Portugal district SVG map with case intensity and signals">
-          <g className={styles.portugalMap} style={{ transform: `scale(${zoom})` }}>
-            {portugalDistrictShapes.map((shape) => {
-              const area = byArea.get(shape.label) ?? { label: shape.label, cases: 0, signals: 0, signal: false };
-              const regionClass = [
-                styles.mapRegion,
-                districtMapTone(area.cases, maxCases),
-                area.signal ? styles.mapSignal : ""
-              ].filter(Boolean).join(" ");
-              return (
-                <g key={shape.label} transform={shape.transform}>
-                  <path
-                    className={regionClass}
-                    d={shape.path}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => onSelectDistrict(shape.label)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        onSelectDistrict(shape.label);
-                      }
-                    }}
-                  >
-                    <title>{`${shape.display}: ${area.cases} cases, ${area.signals} synthetic outbreak flag(s)`}</title>
-                  </path>
-                  {area.signal && shape.textX !== 0 && shape.textY !== 0 ? (
-                    <text className={styles.mapSignalLabel} x={shape.textX} y={shape.textY}>{area.signals}</text>
-                  ) : null}
-                </g>
-              );
-            })}
-          </g>
-        </svg>
-        <div className={styles.tileLegend} aria-hidden="true">
-          <span><i className={styles.swatchZero} /> 0 cases</span>
-          <span><i className={styles.swatchLow} /> low</span>
-          <span><i className={styles.swatchMid} /> medium</span>
-          <span><i className={styles.swatchHigh} /> high</span>
-          <span><i className={styles.signalOutline} /> Synthetic outbreak flag</span>
+        <div className={styles.mapViewport}>
+          <svg viewBox="0 0 379.499 547.489" role="img" aria-label={ariaLabel}>
+            <g className={styles.portugalMap} style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
+              {portugalDistrictShapes.map((shape) => {
+                const area = byArea.get(shape.label) ?? { label: shape.label, cases: 0, signals: 0, signal: false };
+                const regionClass = [
+                  styles.mapRegion,
+                  districtMapTone(area.cases, maxCases),
+                  area.signal ? styles.mapSignal : ""
+                ].filter(Boolean).join(" ");
+                return (
+                  <g key={shape.label} transform={shape.transform}>
+                    <path
+                      className={regionClass}
+                      d={shape.path}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => onSelectDistrict(shape.label)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          onSelectDistrict(shape.label);
+                        }
+                      }}
+                    >
+                      <title>{`${shape.display}: ${area.cases} ${legend.cases}, ${area.signals} ${legend.signalFlag}`}</title>
+                    </path>
+                    {area.signal && shape.textX !== 0 && shape.textY !== 0 ? (
+                      <text className={styles.mapSignalLabel} x={shape.textX} y={shape.textY}>{area.signals}</text>
+                    ) : null}
+                  </g>
+                );
+              })}
+            </g>
+          </svg>
         </div>
-        <p className={styles.mapSource}>District geometry adapted from the public-domain Wikimedia Commons SVG Portuguese Districts Map With Names.</p>
+        <div className={styles.tileLegend} aria-hidden="true">
+          <span><i className={styles.swatchZero} /> {legend.zeroCases}</span>
+          <span><i className={styles.swatchLow} /> {legend.low}</span>
+          <span><i className={styles.swatchMid} /> {legend.medium}</span>
+          <span><i className={styles.swatchHigh} /> {legend.high}</span>
+          <span><i className={styles.signalOutline} /> {legend.signalFlag}</span>
+        </div>
+        <p className={styles.mapSource}>{source}</p>
       </div>
     </figure>
   );
@@ -752,9 +910,15 @@ function MunicipalityDrilldown({
   district,
   items,
   periodText,
+  pan,
   onBack,
   backLabel,
   breadcrumb,
+  title,
+  filterLabel,
+  filterAction,
+  casesLabel,
+  flaggedLabel,
   emptyLabel,
   zoom,
   controls,
@@ -765,9 +929,15 @@ function MunicipalityDrilldown({
   district: string;
   items: StratumItem[];
   periodText: string;
+  pan: MapPan;
   onBack: () => void;
   backLabel: string;
   breadcrumb: string;
+  title: string;
+  filterLabel: string;
+  filterAction: string;
+  casesLabel: string;
+  flaggedLabel: string;
   emptyLabel: string;
   zoom: number;
   controls: ReactNode;
@@ -782,7 +952,7 @@ function MunicipalityDrilldown({
   return (
     <figure className={styles.mapPanel}>
       <figcaption>
-        <span>Cases by municipality, {district}, {periodText}</span>
+        <span>{title}, {district}, {periodText}</span>
         {controls}
       </figcaption>
       <div className={styles.municipalityPanel}>
@@ -791,28 +961,30 @@ function MunicipalityDrilldown({
           <button type="button" onClick={onBack}>{backLabel}</button>
         </div>
         <label className={styles.municipalitySelect}>
-          <span>Municipality filter</span>
+          <span>{filterLabel}</span>
           <select value={selectedMunicipality} onChange={(event) => onSelectMunicipality(event.target.value)}>
             <option value="All">{allLabel}</option>
             {items.map((item) => <option key={item.label}>{item.label}</option>)}
           </select>
         </label>
         {visibleItems.some((item) => item.cases > 0) ? (
-          <div className={styles.municipalityGrid} style={{ transform: `scale(${zoom})` }}>
-            {visibleItems.map((item) => (
-              <article className={`${styles.municipalityTile} ${item.signal ? styles.municipalitySignal : ""}`} key={item.label}>
-                <strong>{item.label}</strong>
-                <span>{item.cases} cases</span>
-                <div className={styles.strataTrack}>
-                  <div
-                    className={item.signal ? styles.strataBarSignal : styles.strataBar}
-                    style={{ width: `${Math.min(100, Math.max(4, (item.cases / maxCases) * 100))}%` }}
-                  />
-                </div>
-                {item.signal ? <em>flagged</em> : null}
-                <button type="button" onClick={() => onSelectMunicipality(item.label)}>Filter</button>
-              </article>
-            ))}
+          <div className={styles.municipalityViewport}>
+            <div className={styles.municipalityGrid} style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
+              {visibleItems.map((item) => (
+                <article className={`${styles.municipalityTile} ${item.signal ? styles.municipalitySignal : ""}`} key={item.label}>
+                  <strong>{item.label}</strong>
+                  <span>{item.cases} {casesLabel}</span>
+                  <div className={styles.strataTrack}>
+                    <div
+                      className={item.signal ? styles.strataBarSignal : styles.strataBar}
+                      style={{ width: `${Math.min(100, Math.max(4, (item.cases / maxCases) * 100))}%` }}
+                    />
+                  </div>
+                  {item.signal ? <em>{flaggedLabel}</em> : null}
+                  <button type="button" onClick={() => onSelectMunicipality(item.label)}>{filterAction}</button>
+                </article>
+              ))}
+            </div>
           </div>
         ) : (
           <p className={styles.referenceIntro}>{emptyLabel}</p>
@@ -1096,6 +1268,7 @@ function HomeContent() {
   const [minCasesSignal, setMinCasesSignal] = useState(1);
   const [timeWindowWeeks, setTimeWindowWeeks] = useState(52);
   const [mapZoom, setMapZoom] = useState(1);
+  const [mapPan, setMapPan] = useState<MapPan>({ x: 0, y: 0 });
   const [ageGroupZoom, setAgeGroupZoom] = useState(1);
   const [sexZoom, setSexZoom] = useState(1);
   const [reportTitle, setReportTitle] = useState("Signal Detection Report");
@@ -1172,13 +1345,27 @@ function HomeContent() {
   );
   const supabaseConfigured = isSupabaseConfigured();
   const signalCount = signalStrata.age_group + signalStrata.district + signalStrata.sex;
+  const nudgeMapPan = (dx: number, dy: number) => {
+    setMapPan((current) => ({
+      x: Math.max(-180, Math.min(180, current.x + dx)),
+      y: Math.max(-180, Math.min(180, current.y + dy))
+    }));
+  };
+  const resetMapViewport = () => {
+    setMapZoom(1);
+    setMapPan({ x: 0, y: 0 });
+  };
+  const handleMapZoomChange = (nextZoom: number) => {
+    setMapZoom(nextZoom);
+    if (nextZoom <= 1) setMapPan({ x: 0, y: 0 });
+  };
   const ageGroupMax = Math.max(1, ...ageGroupItems.map((item) => item.cases));
   const sexMax = Math.max(1, ...sexItems.map((item) => item.cases));
   const timeWindowMin = Math.min(results.length || 1, Math.max(detectionWeeks, 12));
   const timeWindowMax = Math.max(timeWindowMin, results.length || timeWindowMin);
   const effectiveTimeWindowWeeks = Math.min(timeWindowMax, Math.max(timeWindowMin, timeWindowWeeks));
   const showSignalCounts = showMode === "show";
-  const periodText = detectionPeriodLabel(detectionRows, dateFrom, dateTo);
+  const periodText = detectionPeriodLabel(detectionRows, dateFrom, dateTo, language);
   const disease = selectedPathogen === "All" ? t.labels.allPathogens : selectedPathogen;
   const unstratifiedAlarms = results.filter((row) => row.alarm).length;
   const unusedColumns = ["country", "country_id", "region", "region_id", "municipality", "municipality_id"].filter((name) =>
@@ -1431,23 +1618,43 @@ function HomeContent() {
             areas={districtItems}
             periodText={periodText}
             zoom={mapZoom}
+            pan={mapPan}
+            title={t.mapDrilldown.districtTitle}
+            ariaLabel={t.mapDrilldown.ariaLabel}
             hint={t.mapDrilldown.hint}
+            legend={{
+              zeroCases: t.mapDrilldown.zeroCases,
+              cases: t.mapDrilldown.cases,
+              low: t.mapDrilldown.low,
+              medium: t.mapDrilldown.medium,
+              high: t.mapDrilldown.high,
+              flagged: t.mapDrilldown.flagged,
+              signalFlag: t.mapDrilldown.signalFlag
+            }}
+            source={t.mapDrilldown.source}
             onSelectDistrict={(district) => {
               setSelectedMapDistrict(district);
               setMapLevel("municipality");
             }}
             controls={(
-              <ChartControl
-                label={t.chartControls.mapZoom}
-                min={0.8}
-                max={1.8}
-                step={0.1}
-                value={mapZoom}
-                display={`${mapZoom.toFixed(1)}x`}
-                onChange={setMapZoom}
-                onReset={() => setMapZoom(1)}
-                resetLabel={t.chartControls.reset}
-              />
+              <>
+                <ChartControl
+                  label={t.chartControls.mapZoom}
+                  min={0.8}
+                  max={1.8}
+                  step={0.1}
+                  value={mapZoom}
+                  display={`${mapZoom.toFixed(1)}x`}
+                  onChange={handleMapZoomChange}
+                  onReset={resetMapViewport}
+                  resetLabel={t.chartControls.reset}
+                />
+                <MapPanControl
+                  labels={t.chartControls}
+                  disabled={false}
+                  onPan={nudgeMapPan}
+                />
+              </>
             )}
           />
         ) : null}
@@ -1457,8 +1664,14 @@ function HomeContent() {
             items={municipalityItems}
             periodText={periodText}
             zoom={mapZoom}
+            pan={mapPan}
             backLabel={t.mapDrilldown.back}
             breadcrumb={t.mapDrilldown.breadcrumb.replace("{district}", selectedMapDistrict)}
+            title={t.mapDrilldown.title}
+            filterLabel={t.mapDrilldown.filterLabel}
+            filterAction={t.mapDrilldown.filterAction}
+            casesLabel={t.mapDrilldown.cases}
+            flaggedLabel={t.mapDrilldown.flagged}
             emptyLabel={t.mapDrilldown.empty}
             selectedMunicipality={selectedMunicipality}
             onSelectMunicipality={setSelectedMunicipality}
@@ -1467,19 +1680,27 @@ function HomeContent() {
               setMapLevel("district");
               setSelectedMapDistrict(null);
               setSelectedMunicipality("All");
+              setMapPan({ x: 0, y: 0 });
             }}
             controls={(
-              <ChartControl
-                label={t.chartControls.mapZoom}
-                min={0.8}
-                max={1.8}
-                step={0.1}
-                value={mapZoom}
-                display={`${mapZoom.toFixed(1)}x`}
-                onChange={setMapZoom}
-                onReset={() => setMapZoom(1)}
-                resetLabel={t.chartControls.reset}
-              />
+              <>
+                <ChartControl
+                  label={t.chartControls.mapZoom}
+                  min={0.8}
+                  max={1.8}
+                  step={0.1}
+                  value={mapZoom}
+                  display={`${mapZoom.toFixed(1)}x`}
+                  onChange={handleMapZoomChange}
+                  onReset={resetMapViewport}
+                  resetLabel={t.chartControls.reset}
+                />
+                <MapPanControl
+                  labels={t.chartControls}
+                  disabled={false}
+                  onPan={nudgeMapPan}
+                />
+              </>
             )}
           />
         ) : null}
@@ -1580,7 +1801,7 @@ function HomeContent() {
             </label>
           </div>
           <p className={styles.referenceIntro}>
-            Scope: {disease}, {periodText}, stratified by {selectedStrata.length ? selectedStrata.join(", ") : "None"}. Method: {methodOptions.find((option) => option.value === method)?.label}, alpha {alphaUpper.toFixed(3)}. Denominator/rates: crude rates per 100k are shown only when numerator filters and denominator scope are explicit; uploaded case line-lists alone remain counts-only. Prototype limits: FarringtonFlexible and GLM are served through the local R bridge; EARS and CUSUM remain native prototypes. Current filters: district {selectedDistrict}, municipality {selectedMunicipality}, sex {selectedSex}, dates {dateFrom || "min"} to {dateTo || "max"}.
+            {t.report.scopePrefix}: {disease}, {periodText}, {t.report.stratifiedBy} {selectedStrata.length ? selectedStrata.join(", ") : t.report.none}. {t.report.method}: {methodOptions.find((option) => option.value === method)?.label}, alpha {alphaUpper.toFixed(3)}. {t.report.denominator}: {t.report.denominatorText} {t.report.prototypeLimits}: {t.report.prototypeText} {t.report.currentFilters}: {t.report.district} {selectedDistrict}, {t.report.municipality} {selectedMunicipality}, {t.report.sex} {selectedSex}, {t.report.dates} {dateFrom || t.report.minDate} {language === "pt" ? "a" : "to"} {dateTo || t.report.maxDate}.
           </p>
           <button type="button" onClick={() => {
             const parameters = { method, disease, detectionWeeks, alphaUpper, minCasesSignal, selectedStrata, selectedDistrict, selectedMunicipality, selectedSex, dateFrom, dateTo, denominatorNote };
@@ -1602,21 +1823,21 @@ function HomeContent() {
         <article className={styles.panel}>
           <div className={styles.panelHeader}>
             <h2>{t.dataPanel.load}</h2>
-            <span>{cases.length} rows loaded · {filteredCases.length} rows after current filters</span>
+            <span>{cases.length} {t.dataPanel.rowsLoaded} · {filteredCases.length} {t.dataPanel.rowsAfterFilters}</span>
           </div>
           <input type="file" accept=".csv" onChange={(event) => void handleFile(event.target.files?.[0] ?? null)} />
           <div className={styles.checkGrid}>
             <div className={errors.length ? styles.statusError : styles.statusOk}>
               <strong>{t.dataPanel.checks}</strong>
-              <span>{errors.length ? errors.join("; ") : "All mandatory fields pass the current prototype checks."}</span>
+              <span>{errors.length ? errors.join("; ") : t.dataPanel.mandatoryPass}</span>
             </div>
             <div className={styles.statusOk}>
               <strong>{t.dataPanel.unused}</strong>
-              <span>{unusedColumns.length ? unusedColumns.join(", ") : "None detected."}</span>
+              <span>{unusedColumns.length ? unusedColumns.join(", ") : t.dataPanel.noneDetected}</span>
             </div>
             <div className={missingRequiredRows || missingAgeRows || negativeAgeRows ? styles.statusError : styles.statusOk}>
               <strong>{t.dataPanel.quality}</strong>
-              <span>Missing mandatory rows: {missingRequiredRows}; missing age/age_group: {missingAgeRows}; negative ages: {negativeAgeRows}.</span>
+              <span>{t.dataPanel.missingMandatory}: {missingRequiredRows}; {t.dataPanel.missingAge}: {missingAgeRows}; {t.dataPanel.negativeAges}: {negativeAgeRows}.</span>
             </div>
           </div>
           <h2>{t.dataPanel.uploaded}</h2>
@@ -1626,25 +1847,25 @@ function HomeContent() {
         <article className={styles.panel}>
           <h2>{t.dataPanel.structure}</h2>
           <p className={styles.referenceIntro}>
-            This version accepts a case line-list CSV and aggregates it to ISO weeks. Crude rates are shown only when a supported denominator source is configured for the selected filters; uploaded case line-lists alone are counts-only. FarringtonFlexible and GLM are routed through the local R bridge, while EARS and CUSUM remain native prototypes.
+            {t.dataPanel.structureIntro}
           </p>
           <div className={styles.tableWrap}>
             <table>
               <thead>
                 <tr>
-                  <th>Field</th>
-                  <th>Required</th>
-                  <th>Type</th>
-                  <th>Definition</th>
+                  <th>{t.dataPanel.field}</th>
+                  <th>{t.dataPanel.required}</th>
+                  <th>{t.dataPanel.type}</th>
+                  <th>{t.dataPanel.definition}</th>
                 </tr>
               </thead>
               <tbody>
                 {expectedFields.map((field) => (
                   <tr key={field.name}>
                     <td>{field.name}</td>
-                    <td>{field.required}</td>
+                    <td>{fieldRequiredText(field, language)}</td>
                     <td>{field.type}</td>
-                    <td>{field.description}</td>
+                    <td>{fieldDescriptionText(field, language)}</td>
                   </tr>
                 ))}
               </tbody>
