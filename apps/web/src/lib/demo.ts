@@ -1,4 +1,5 @@
 import type { CaseRecord, DemoSummary, WeeklyResult } from "./types";
+import { syntheticMunicipalitiesByDistrict } from "./ptMunicipalities";
 
 const sampleStartDate = "2020-01-06";
 const sampleWeeks = 220;
@@ -54,7 +55,11 @@ export function makeDemoCases(): CaseRecord[] {
 
   function addCases(date: string, count: number, area: typeof ptDistricts[number], age_group: string, sex: string, status: string, prefix: string, pathogen = "Pertussis") {
     const age = age_group === "00-04" ? 3 : age_group === "40-44" ? 42 : age_group === "45-54" ? 49 : area.age;
+    const municipalities = syntheticMunicipalitiesByDistrict[area.district] ?? [];
     for (let index = 0; index < count; index += 1) {
+      const municipality = municipalities.length
+        ? municipalities[(index + date.charCodeAt(8) + prefix.length) % municipalities.length]
+        : { municipality: area.municipality, municipality_id: undefined };
       rows.push({
         case_id: `${prefix}-${date}-${area.district_id}-${index + 1}`,
         date_report: date,
@@ -64,7 +69,8 @@ export function makeDemoCases(): CaseRecord[] {
         region_id: area.region_id,
         district: area.district,
         district_id: area.district_id,
-        municipality: area.municipality,
+        municipality: municipality.municipality,
+        municipality_id: municipality.municipality_id,
         pathogen,
         age,
         age_group,

@@ -6,6 +6,14 @@ Adicionar uma vista progressiva do mapa português: primeiro distrito, depois co
 
 O objetivo é apoiar leitura epidemiológica local sem sugerir precisão indevida quando os dados são sintéticos, incompletos ou agregados a níveis administrativos diferentes.
 
+## Estado atual
+
+- Primeira fase implementada na app web.
+- O mapa distrital permite clique/teclado para abrir uma vista concelhia sintética.
+- A vista concelhia usa cartões agregados, não geometria oficial.
+- A amostra demo distribui casos por concelhos sintéticos determinísticos.
+- Geometrias concelhias reais continuam fora de escopo até existir fonte pública/licença compatível e revisão de desempenho.
+
 ## Modelo de interação
 
 - A vista inicial mantém o mapa por distrito.

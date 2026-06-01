@@ -8,6 +8,7 @@ export type CaseRecord = {
   district?: string;
   district_id?: string;
   municipality?: string;
+  municipality_id?: string;
   pathogen: string;
   age?: number;
   age_group?: string;

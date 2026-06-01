@@ -16,6 +16,7 @@ import {
 import { expectedFields } from "@/lib/reference";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { portugalDistrictShapes } from "@/lib/ptDistrictMap";
+import { syntheticMunicipalitiesByDistrict } from "@/lib/ptMunicipalities";
 import type { CaseRecord, WeeklyResult } from "@/lib/types";
 import styles from "./page.module.css";
 
@@ -34,6 +35,7 @@ type NavTab =
   | { label: string; icon: string; section: SectionKey };
 
 type StrataKey = "district" | "age_group" | "sex";
+type MapLevel = "district" | "municipality";
 
 const copy = {
   pt: {
@@ -109,6 +111,12 @@ const copy = {
       strataZoom: "Zoom visual dos estratos",
       mapZoom: "Zoom visual do mapa",
       reset: "Repor zoom"
+    },
+    mapDrilldown: {
+      hint: "Clique num distrito para ver concelhos sintéticos.",
+      back: "Voltar a distritos",
+      breadcrumb: "Portugal -> {district} -> concelhos",
+      empty: "Sem dados concelhios para este distrito nos filtros atuais."
     },
     dataPanel: {
       load: "Carregar dados",
@@ -199,6 +207,12 @@ const copy = {
       strataZoom: "Visual zoom for strata",
       mapZoom: "Visual map zoom",
       reset: "Reset zoom"
+    },
+    mapDrilldown: {
+      hint: "Click a district to view synthetic municipalities.",
+      back: "Back to districts",
+      breadcrumb: "Portugal -> {district} -> municipalities",
+      empty: "No municipality data for this district under the current filters."
     },
     dataPanel: {
       load: "Load Data",
@@ -664,12 +678,16 @@ function PortugalDistrictMap({
   areas,
   periodText,
   zoom,
-  controls
+  controls,
+  hint,
+  onSelectDistrict
 }: {
   areas: StratumItem[];
   periodText: string;
   zoom: number;
   controls: ReactNode;
+  hint: string;
+  onSelectDistrict: (district: string) => void;
 }) {
   const byArea = new Map(areas.map((area) => [area.label, area]));
   const maxCases = Math.max(1, ...areas.map((area) => area.cases));
@@ -680,6 +698,7 @@ function PortugalDistrictMap({
         {controls}
       </figcaption>
       <div className={styles.svgMapWrap}>
+        <p className={styles.mapSource}>{hint}</p>
         <svg viewBox="0 0 379.499 547.489" role="img" aria-label="Portugal district SVG map with case intensity and signals">
           <g className={styles.portugalMap} style={{ transform: `scale(${zoom})` }}>
             {portugalDistrictShapes.map((shape) => {
@@ -691,7 +710,19 @@ function PortugalDistrictMap({
               ].filter(Boolean).join(" ");
               return (
                 <g key={shape.label} transform={shape.transform}>
-                  <path className={regionClass} d={shape.path}>
+                  <path
+                    className={regionClass}
+                    d={shape.path}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onSelectDistrict(shape.label)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onSelectDistrict(shape.label);
+                      }
+                    }}
+                  >
                     <title>{`${shape.display}: ${area.cases} cases, ${area.signals} synthetic outbreak flag(s)`}</title>
                   </path>
                   {area.signal && shape.textX !== 0 && shape.textY !== 0 ? (
@@ -710,6 +741,63 @@ function PortugalDistrictMap({
           <span><i className={styles.signalOutline} /> Synthetic outbreak flag</span>
         </div>
         <p className={styles.mapSource}>District geometry adapted from the public-domain Wikimedia Commons SVG Portuguese Districts Map With Names.</p>
+      </div>
+    </figure>
+  );
+}
+
+function MunicipalityDrilldown({
+  district,
+  items,
+  periodText,
+  onBack,
+  backLabel,
+  breadcrumb,
+  emptyLabel,
+  zoom,
+  controls
+}: {
+  district: string;
+  items: StratumItem[];
+  periodText: string;
+  onBack: () => void;
+  backLabel: string;
+  breadcrumb: string;
+  emptyLabel: string;
+  zoom: number;
+  controls: ReactNode;
+}) {
+  const maxCases = Math.max(1, ...items.map((item) => item.cases));
+  return (
+    <figure className={styles.mapPanel}>
+      <figcaption>
+        <span>Cases by municipality, {district}, {periodText}</span>
+        {controls}
+      </figcaption>
+      <div className={styles.municipalityPanel}>
+        <div className={styles.mapDrillHeader}>
+          <span>{breadcrumb}</span>
+          <button type="button" onClick={onBack}>{backLabel}</button>
+        </div>
+        {items.some((item) => item.cases > 0) ? (
+          <div className={styles.municipalityGrid} style={{ transform: `scale(${zoom})` }}>
+            {items.map((item) => (
+              <article className={`${styles.municipalityTile} ${item.signal ? styles.municipalitySignal : ""}`} key={item.label}>
+                <strong>{item.label}</strong>
+                <span>{item.cases} cases</span>
+                <div className={styles.strataTrack}>
+                  <div
+                    className={item.signal ? styles.strataBarSignal : styles.strataBar}
+                    style={{ width: `${Math.min(100, Math.max(4, (item.cases / maxCases) * 100))}%` }}
+                  />
+                </div>
+                {item.signal ? <em>flagged</em> : null}
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className={styles.referenceIntro}>{emptyLabel}</p>
+        )}
       </div>
     </figure>
   );
@@ -978,6 +1066,8 @@ function HomeContent() {
   const [method, setMethod] = useState("cusum");
   const [selectedPathogen, setSelectedPathogen] = useState("Pertussis");
   const [selectedDistrict, setSelectedDistrict] = useState("All");
+  const [mapLevel, setMapLevel] = useState<MapLevel>("district");
+  const [selectedMapDistrict, setSelectedMapDistrict] = useState<string | null>(null);
   const [selectedSex, setSelectedSex] = useState("All");
   const [dateFrom, setDateFrom] = useState("2020-01-06");
   const [dateTo, setDateTo] = useState("2024-03-18");
@@ -1038,6 +1128,12 @@ function HomeContent() {
     () => buildStratumItems(detectionRows, (row) => row.district || "unknown", portugalDistrictShapes.map((area) => area.label)),
     [detectionRows]
   );
+  const municipalityItems = useMemo(() => {
+    if (!selectedMapDistrict) return [];
+    const order = (syntheticMunicipalitiesByDistrict[selectedMapDistrict] ?? []).map((area) => area.municipality);
+    const rows = detectionRows.filter((row) => row.district === selectedMapDistrict);
+    return buildStratumItems(rows, (row) => row.municipality || "unknown", order);
+  }, [detectionRows, selectedMapDistrict]);
   const signalStrata = useMemo(
     () => ({
       age_group: countSignalStrata(ageGroupItems),
@@ -1090,6 +1186,13 @@ function HomeContent() {
       setMethod(possibleMethods[0]);
     }
   }, [method, possibleMethods]);
+
+  useEffect(() => {
+    if (selectedDistrict !== "All" && selectedMapDistrict !== selectedDistrict) {
+      setMapLevel("district");
+      setSelectedMapDistrict(null);
+    }
+  }, [selectedDistrict, selectedMapDistrict]);
 
   function run(rows = filteredCases) {
     const validationErrors = validateCases(rows);
@@ -1271,11 +1374,44 @@ function HomeContent() {
       </p>
 
       <section id="signals" className={styles.signalsGrid} hidden={activeSection !== "signals"}>
-        {selectedStrata.includes("district") ? (
+        {selectedStrata.includes("district") && mapLevel === "district" ? (
           <PortugalDistrictMap
             areas={districtItems}
             periodText={periodText}
             zoom={mapZoom}
+            hint={t.mapDrilldown.hint}
+            onSelectDistrict={(district) => {
+              setSelectedMapDistrict(district);
+              setMapLevel("municipality");
+            }}
+            controls={(
+              <ChartControl
+                label={t.chartControls.mapZoom}
+                min={0.8}
+                max={1.8}
+                step={0.1}
+                value={mapZoom}
+                display={`${mapZoom.toFixed(1)}x`}
+                onChange={setMapZoom}
+                onReset={() => setMapZoom(1)}
+                resetLabel={t.chartControls.reset}
+              />
+            )}
+          />
+        ) : null}
+        {selectedStrata.includes("district") && mapLevel === "municipality" && selectedMapDistrict ? (
+          <MunicipalityDrilldown
+            district={selectedMapDistrict}
+            items={municipalityItems}
+            periodText={periodText}
+            zoom={mapZoom}
+            backLabel={t.mapDrilldown.back}
+            breadcrumb={t.mapDrilldown.breadcrumb.replace("{district}", selectedMapDistrict)}
+            emptyLabel={t.mapDrilldown.empty}
+            onBack={() => {
+              setMapLevel("district");
+              setSelectedMapDistrict(null);
+            }}
             controls={(
               <ChartControl
                 label={t.chartControls.mapZoom}
