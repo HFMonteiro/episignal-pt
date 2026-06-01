@@ -64,6 +64,7 @@ const copy = {
       dataFile: "Ficheiro de dados",
       pathogen: "Agente/doença",
       district: "Filtro por distrito",
+      municipality: "Filtro por concelho",
       sex: "Filtro por sexo",
       dateFrom: "Data inicial",
       dateTo: "Data final",
@@ -160,6 +161,7 @@ const copy = {
       dataFile: "Data file",
       pathogen: "Pathogen",
       district: "District filter",
+      municipality: "Municipality filter",
       sex: "Sex filter",
       dateFrom: "Date from",
       dateTo: "Date to",
@@ -755,7 +757,10 @@ function MunicipalityDrilldown({
   breadcrumb,
   emptyLabel,
   zoom,
-  controls
+  controls,
+  selectedMunicipality,
+  onSelectMunicipality,
+  allLabel
 }: {
   district: string;
   items: StratumItem[];
@@ -766,8 +771,14 @@ function MunicipalityDrilldown({
   emptyLabel: string;
   zoom: number;
   controls: ReactNode;
+  selectedMunicipality: string;
+  onSelectMunicipality: (municipality: string) => void;
+  allLabel: string;
 }) {
   const maxCases = Math.max(1, ...items.map((item) => item.cases));
+  const visibleItems = selectedMunicipality === "All"
+    ? items
+    : items.filter((item) => item.label === selectedMunicipality);
   return (
     <figure className={styles.mapPanel}>
       <figcaption>
@@ -779,9 +790,16 @@ function MunicipalityDrilldown({
           <span>{breadcrumb}</span>
           <button type="button" onClick={onBack}>{backLabel}</button>
         </div>
-        {items.some((item) => item.cases > 0) ? (
+        <label className={styles.municipalitySelect}>
+          <span>Municipality filter</span>
+          <select value={selectedMunicipality} onChange={(event) => onSelectMunicipality(event.target.value)}>
+            <option value="All">{allLabel}</option>
+            {items.map((item) => <option key={item.label}>{item.label}</option>)}
+          </select>
+        </label>
+        {visibleItems.some((item) => item.cases > 0) ? (
           <div className={styles.municipalityGrid} style={{ transform: `scale(${zoom})` }}>
-            {items.map((item) => (
+            {visibleItems.map((item) => (
               <article className={`${styles.municipalityTile} ${item.signal ? styles.municipalitySignal : ""}`} key={item.label}>
                 <strong>{item.label}</strong>
                 <span>{item.cases} cases</span>
@@ -792,6 +810,7 @@ function MunicipalityDrilldown({
                   />
                 </div>
                 {item.signal ? <em>flagged</em> : null}
+                <button type="button" onClick={() => onSelectMunicipality(item.label)}>Filter</button>
               </article>
             ))}
           </div>
@@ -1066,6 +1085,7 @@ function HomeContent() {
   const [method, setMethod] = useState("cusum");
   const [selectedPathogen, setSelectedPathogen] = useState("Pertussis");
   const [selectedDistrict, setSelectedDistrict] = useState("All");
+  const [selectedMunicipality, setSelectedMunicipality] = useState("All");
   const [mapLevel, setMapLevel] = useState<MapLevel>("district");
   const [selectedMapDistrict, setSelectedMapDistrict] = useState<string | null>(null);
   const [selectedSex, setSelectedSex] = useState("All");
@@ -1084,6 +1104,13 @@ function HomeContent() {
 
   const pathogens = useMemo(() => uniqueValues(cases, (row) => row.pathogen), [cases]);
   const districts = useMemo(() => uniqueValues(cases, (row) => row.district), [cases]);
+  const municipalityOptions = useMemo(
+    () => uniqueValues(
+      cases.filter((row) => selectedDistrict === "All" || row.district === selectedDistrict),
+      (row) => row.municipality
+    ),
+    [cases, selectedDistrict]
+  );
   const sexes = useMemo(() => uniqueValues(cases, (row) => row.sex), [cases]);
   const dataMinDate = useMemo(() => minDate(cases), [cases]);
   const dataMaxDate = useMemo(() => maxDate(cases), [cases]);
@@ -1096,12 +1123,13 @@ function HomeContent() {
     () => cases.filter((row) => {
       if (selectedPathogen !== "All" && row.pathogen !== selectedPathogen) return false;
       if (selectedDistrict !== "All" && row.district !== selectedDistrict) return false;
+      if (selectedMunicipality !== "All" && row.municipality !== selectedMunicipality) return false;
       if (selectedSex !== "All" && row.sex !== selectedSex) return false;
       if (dateFrom && row.date_report < dateFrom) return false;
       if (dateTo && row.date_report > dateTo) return false;
       return true;
     }),
-    [cases, dateFrom, dateTo, selectedDistrict, selectedPathogen, selectedSex]
+    [cases, dateFrom, dateTo, selectedDistrict, selectedMunicipality, selectedPathogen, selectedSex]
   );
   const denominatorResolution = useMemo(
     () => resolveCrudeDenominator(datasetSource, selectedDistrict, selectedSex, language),
@@ -1153,7 +1181,7 @@ function HomeContent() {
   const periodText = detectionPeriodLabel(detectionRows, dateFrom, dateTo);
   const disease = selectedPathogen === "All" ? t.labels.allPathogens : selectedPathogen;
   const unstratifiedAlarms = results.filter((row) => row.alarm).length;
-  const unusedColumns = ["country", "country_id", "region", "region_id", "municipality"].filter((name) =>
+  const unusedColumns = ["country", "country_id", "region", "region_id", "municipality", "municipality_id"].filter((name) =>
     cases.some((row) => Boolean(row[name as keyof CaseRecord]))
   );
   const missingRequiredRows = cases.filter((row) => !row.case_id || !row.date_report || !row.country || !row.country_id || !row.pathogen).length;
@@ -1193,6 +1221,12 @@ function HomeContent() {
       setSelectedMapDistrict(null);
     }
   }, [selectedDistrict, selectedMapDistrict]);
+
+  useEffect(() => {
+    if (selectedMunicipality !== "All" && !municipalityOptions.includes(selectedMunicipality)) {
+      setSelectedMunicipality("All");
+    }
+  }, [municipalityOptions, selectedMunicipality]);
 
   function run(rows = filteredCases) {
     const validationErrors = validateCases(rows);
@@ -1270,9 +1304,27 @@ function HomeContent() {
         </div>
         <div>
           <label htmlFor="district-filter">{t.labels.district}</label>
-          <select id="district-filter" value={selectedDistrict} onChange={(event) => setSelectedDistrict(event.target.value)}>
+          <select
+            id="district-filter"
+            value={selectedDistrict}
+            onChange={(event) => {
+              setSelectedDistrict(event.target.value);
+              setSelectedMunicipality("All");
+            }}
+          >
             <option value="All">{t.labels.all}</option>
             {districts.map((district) => <option key={district}>{district}</option>)}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="municipality-filter">{t.labels.municipality}</label>
+          <select
+            id="municipality-filter"
+            value={selectedMunicipality}
+            onChange={(event) => setSelectedMunicipality(event.target.value)}
+          >
+            <option value="All">{t.labels.all}</option>
+            {municipalityOptions.map((municipality) => <option key={municipality}>{municipality}</option>)}
           </select>
         </div>
         <div>
@@ -1408,9 +1460,13 @@ function HomeContent() {
             backLabel={t.mapDrilldown.back}
             breadcrumb={t.mapDrilldown.breadcrumb.replace("{district}", selectedMapDistrict)}
             emptyLabel={t.mapDrilldown.empty}
+            selectedMunicipality={selectedMunicipality}
+            onSelectMunicipality={setSelectedMunicipality}
+            allLabel={t.labels.all}
             onBack={() => {
               setMapLevel("district");
               setSelectedMapDistrict(null);
+              setSelectedMunicipality("All");
             }}
             controls={(
               <ChartControl
@@ -1524,10 +1580,10 @@ function HomeContent() {
             </label>
           </div>
           <p className={styles.referenceIntro}>
-            Scope: {disease}, {periodText}, stratified by {selectedStrata.length ? selectedStrata.join(", ") : "None"}. Method: {methodOptions.find((option) => option.value === method)?.label}, alpha {alphaUpper.toFixed(3)}. Denominator/rates: crude rates per 100k are shown only when numerator filters and denominator scope are explicit; uploaded case line-lists alone remain counts-only. Prototype limits: FarringtonFlexible and GLM are served through the local R bridge; EARS and CUSUM remain native prototypes. Current filters: district {selectedDistrict}, sex {selectedSex}, dates {dateFrom || "min"} to {dateTo || "max"}.
+            Scope: {disease}, {periodText}, stratified by {selectedStrata.length ? selectedStrata.join(", ") : "None"}. Method: {methodOptions.find((option) => option.value === method)?.label}, alpha {alphaUpper.toFixed(3)}. Denominator/rates: crude rates per 100k are shown only when numerator filters and denominator scope are explicit; uploaded case line-lists alone remain counts-only. Prototype limits: FarringtonFlexible and GLM are served through the local R bridge; EARS and CUSUM remain native prototypes. Current filters: district {selectedDistrict}, municipality {selectedMunicipality}, sex {selectedSex}, dates {dateFrom || "min"} to {dateTo || "max"}.
           </p>
           <button type="button" onClick={() => {
-            const parameters = { method, disease, detectionWeeks, alphaUpper, minCasesSignal, selectedStrata, selectedDistrict, selectedSex, dateFrom, dateTo, denominatorNote };
+            const parameters = { method, disease, detectionWeeks, alphaUpper, minCasesSignal, selectedStrata, selectedDistrict, selectedMunicipality, selectedSex, dateFrom, dateTo, denominatorNote };
             if (reportFormat === "JSON") {
               download("episignal-report-summary.json", JSON.stringify({ title: reportTitle, format: reportFormat, includeTables, summary, signalCount, signalStrata, parameters, results }, null, 2), "application/json");
               return;
