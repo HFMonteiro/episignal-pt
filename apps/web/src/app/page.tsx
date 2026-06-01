@@ -1001,7 +1001,7 @@ function MunicipalityDrilldown({
             {items.map((item) => <option key={item.label}>{item.label}</option>)}
           </select>
         </label>
-        {visibleItems.some((item) => item.cases > 0) ? (
+        {shapes.length ? (
           <div className={styles.municipalityViewport}>
             {panControls}
             <svg viewBox={portugalMunicipalityMapMeta.viewBox} role="img" aria-label={`${title}, ${district}`}>
@@ -1036,6 +1036,9 @@ function MunicipalityDrilldown({
                 })}
               </g>
             </svg>
+            {visibleItems.some((item) => item.cases > 0) ? null : (
+              <p className={styles.mapEmptyNote}>{emptyLabel}</p>
+            )}
           </div>
         ) : (
           <p className={styles.referenceIntro}>{emptyLabel}</p>

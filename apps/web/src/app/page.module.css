@@ -484,6 +484,21 @@
   display: block;
 }
 
+.mapEmptyNote {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  max-width: calc(100% - 20px);
+  margin: 0;
+  border: 1px solid #d8e0eb;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #475467;
+  padding: 6px 8px;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
 .municipalityTile {
   min-height: 112px;
   display: grid;
