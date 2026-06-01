@@ -843,6 +843,7 @@ function PortugalDistrictMap({
   zoom,
   pan,
   controls,
+  panControls,
   title,
   ariaLabel,
   hint,
@@ -855,6 +856,7 @@ function PortugalDistrictMap({
   zoom: number;
   pan: MapPan;
   controls: ReactNode;
+  panControls: ReactNode;
   title: string;
   ariaLabel: string;
   hint: string;
@@ -881,6 +883,7 @@ function PortugalDistrictMap({
       <div className={styles.svgMapWrap}>
         <p className={styles.mapSource}>{hint}</p>
         <div className={styles.mapViewport}>
+          {panControls}
           <svg viewBox="0 0 379.499 547.489" role="img" aria-label={ariaLabel}>
             <g className={styles.portugalMap} style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
               {portugalDistrictShapes.map((shape) => {
@@ -947,6 +950,7 @@ function MunicipalityDrilldown({
   emptyLabel,
   zoom,
   controls,
+  panControls,
   selectedMunicipality,
   onSelectMunicipality,
   allLabel
@@ -968,6 +972,7 @@ function MunicipalityDrilldown({
   emptyLabel: string;
   zoom: number;
   controls: ReactNode;
+  panControls: ReactNode;
   selectedMunicipality: string;
   onSelectMunicipality: (municipality: string) => void;
   allLabel: string;
@@ -998,6 +1003,7 @@ function MunicipalityDrilldown({
         </label>
         {visibleItems.some((item) => item.cases > 0) ? (
           <div className={styles.municipalityViewport}>
+            {panControls}
             <svg viewBox={portugalMunicipalityMapMeta.viewBox} role="img" aria-label={`${title}, ${district}`}>
               <g className={styles.portugalMap} style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
                 {shapes.map((shape) => {
@@ -1689,24 +1695,24 @@ function HomeContent() {
               setMapLevel("municipality");
             }}
             controls={(
-              <>
-                <ChartControl
-                  label={t.chartControls.mapZoom}
-                  min={0.8}
-                  max={1.8}
-                  step={0.1}
-                  value={mapZoom}
-                  display={`${mapZoom.toFixed(1)}x`}
-                  onChange={handleMapZoomChange}
-                  onReset={resetMapViewport}
-                  resetLabel={t.chartControls.reset}
-                />
-                <MapPanControl
-                  labels={t.chartControls}
-                  disabled={false}
-                  onPan={nudgeMapPan}
-                />
-              </>
+              <ChartControl
+                label={t.chartControls.mapZoom}
+                min={0.8}
+                max={1.8}
+                step={0.1}
+                value={mapZoom}
+                display={`${mapZoom.toFixed(1)}x`}
+                onChange={handleMapZoomChange}
+                onReset={resetMapViewport}
+                resetLabel={t.chartControls.reset}
+              />
+            )}
+            panControls={(
+              <MapPanControl
+                labels={t.chartControls}
+                disabled={false}
+                onPan={nudgeMapPan}
+              />
             )}
           />
         ) : null}
@@ -1737,24 +1743,24 @@ function HomeContent() {
               setMapPan({ x: 0, y: 0 });
             }}
             controls={(
-              <>
-                <ChartControl
-                  label={t.chartControls.mapZoom}
-                  min={0.8}
-                  max={1.8}
-                  step={0.1}
-                  value={mapZoom}
-                  display={`${mapZoom.toFixed(1)}x`}
-                  onChange={handleMapZoomChange}
-                  onReset={resetMapViewport}
-                  resetLabel={t.chartControls.reset}
-                />
-                <MapPanControl
-                  labels={t.chartControls}
-                  disabled={false}
-                  onPan={nudgeMapPan}
-                />
-              </>
+              <ChartControl
+                label={t.chartControls.mapZoom}
+                min={0.8}
+                max={1.8}
+                step={0.1}
+                value={mapZoom}
+                display={`${mapZoom.toFixed(1)}x`}
+                onChange={handleMapZoomChange}
+                onReset={resetMapViewport}
+                resetLabel={t.chartControls.reset}
+              />
+            )}
+            panControls={(
+              <MapPanControl
+                labels={t.chartControls}
+                disabled={false}
+                onPan={nudgeMapPan}
+              />
             )}
           />
         ) : null}
