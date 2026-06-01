@@ -44,22 +44,22 @@ const copy: Record<Language, {
     signals: "Sinais",
     title: "Contexto, fontes e nota legal",
     intro:
-      "Este protótipo é um painel exploratório português de vigilância epidemiológica inspirado no United4Surveillance Signal Detection Tool. Serve apenas para avaliação técnica, desenho de interface, planeamento de migração e testes de paridade algorítmica.",
+      "Esta proposta é um painel português de vigilância epidemiológica inspirado no United4Surveillance Signal Detection Tool. Serve para avaliação técnica, desenho de interface, planeamento de migração e validação progressiva dos métodos.",
     back: "Voltar aos Sinais",
     cards: [
       {
-        title: "Objetivos do protótipo",
+        title: "Objetivos da proposta",
         items: [
           "Replicar o fluxo principal da aplicação Shiny numa interface analítica orientada ao browser.",
           "Usar uma line-list portuguesa sintética para testar interação, filtros e gráficos.",
           "Preparar o caminho de worker Python/R para execução validada dos algoritmos.",
-          "Documentar o que é apenas demonstrativo antes de usar qualquer dado real de vigilância."
+          "Documentar limites, pressupostos e requisitos antes de usar qualquer dado real de vigilância."
         ]
       },
       {
         title: "Fontes de inspiração",
         body:
-          "O trabalho inspira-se no repositório United4Surveillance Signal Detection Tool, na vista Shiny de sinais e no contexto metodológico ECDC EpiSignalDetection. Este protótipo não é endossado pelo ECDC nem pela United4Surveillance."
+          "O trabalho inspira-se no repositório United4Surveillance Signal Detection Tool, na vista Shiny de sinais e no contexto metodológico ECDC EpiSignalDetection. A proposta é independente e não representa endosso do ECDC ou da United4Surveillance."
       },
       {
         title: "Fluxo original coberto",
@@ -67,7 +67,7 @@ const copy: Record<Language, {
           "Dados: upload de line-list, validação de variáveis obrigatórias, feedback de qualidade e pré-visualização.",
           "Parâmetros: seleção de agente/doença, filtros, janela de deteção, estratos e método.",
           "Sinais: cartões-resumo, vistas estratificadas, série temporal e tabelas de sinais.",
-          "Relatório: artefacto descarregável baseado no método, filtros e estratos selecionados."
+          "Relatório: exportação resumida baseada no método, filtros e estratos selecionados."
         ]
       },
       {
@@ -97,7 +97,7 @@ const copy: Record<Language, {
           {
             title: "EARS",
             body:
-              "Método de rastreio de janela curta para aberrações recentes. Útil quando o histórico é limitado, mas mais sensível a ruído recente e artefactos de notificação.",
+              "Método de rastreio de janela curta para aberrações recentes. Útil quando o histórico é limitado, mas mais sensível a ruído recente e variações de notificação.",
             links: [
               { href: methodLinks.ears, label: "surveillance::earsC" },
               { href: methodLinks.methods, label: "Lista de métodos SignalDetectionTool" }
@@ -128,7 +128,7 @@ const copy: Record<Language, {
       {
         title: "Limites metodológicos",
         body:
-          "A interface browser espelha o fluxo epidemiológico para avaliação, não para vigilância em produção. FarringtonFlexible e GLM são encaminhados pelo R bridge local; EARS e CUSUM continuam protótipos nativos. Uso validado em produção deve chamar a implementação R original ou workers testados por paridade, juntamente com o pipeline de relatório."
+          "A interface espelha o fluxo epidemiológico para avaliação técnica. FarringtonFlexible e GLM usam a integração R; EARS e CUSUM requerem validação operacional adicional. Uso em produção deve assentar em métodos testados por paridade, governação de dados e revisão epidemiológica."
       },
       {
         title: "Lacunas para produção",
@@ -136,14 +136,14 @@ const copy: Record<Language, {
           "EARS e CUSUM ainda precisam de reforço operacional final e maior cobertura de casos-limite.",
           "FarringtonFlexible e GLM estão disponíveis via R bridge local, mas o bridge é uma camada de integração e não o endpoint final de produção.",
           "Geração DOCX e HTML completo semelhante ao Shiny ainda precisam do caminho de relatório em R.",
-          "Autenticação, controlo de acessos por papel, logs de auditoria e políticas de retenção não estão ativos na demo pública.",
+          "Autenticação, controlo de acessos por papel, logs de auditoria e políticas de retenção devem ser definidos antes de uso com dados reais.",
           "Uso de dados reais exige revisão DPIA/base legal, minimização de dados e controlos operacionais de segurança."
         ]
       },
       {
         title: "Marcas institucionais",
         body:
-          "Logótipos institucionais não são apresentados no protótipo atual. Isto evita sugerir endosso, aprovação, contratação ou implantação operacional por qualquer entidade pública enquanto a ferramenta está em avaliação técnica."
+          "Logótipos institucionais não são apresentados. Isto evita sugerir endosso, aprovação, contratação ou implantação operacional por qualquer entidade pública enquanto a ferramenta está em avaliação técnica."
       },
       {
         title: "Governação e privacidade",
@@ -167,7 +167,7 @@ const copy: Record<Language, {
       {
         title: "Informação de desenvolvimento",
         body:
-          "Notas de desenvolvimento do protótipo e migração técnica podem referenciar Hugo Filipe Monteiro como contexto de contacto técnico: hfmonteiro.com."
+          "Notas de desenvolvimento e migração técnica podem referenciar Hugo Filipe Monteiro como contexto de contacto técnico: hfmonteiro.com."
       }
     ]
   },
@@ -176,22 +176,22 @@ const copy: Record<Language, {
     signals: "Signals",
     title: "Background, Sources and Legal Notice",
     intro:
-      "This prototype is an exploratory Portuguese public-health dashboard inspired by the United4Surveillance Signal Detection Tool. It is intended for technical evaluation, interface design, migration planning, and algorithm-parity testing only.",
+      "This proposal is a Portuguese public-health surveillance dashboard inspired by the United4Surveillance Signal Detection Tool. It is intended for technical evaluation, interface design, migration planning and progressive method validation.",
     back: "Return to Signals",
     cards: [
       {
         title: "Prototype Objectives",
         items: [
           "Replicate the main Shiny workflow in a browser-first analytical interface.",
-          "Use a Portuguese synthetic line-list to test interaction, filtering and charts.",
+          "Use a Portuguese demonstration line-list to test interaction, filtering and charts.",
           "Prepare a Python/R worker path for validated algorithm execution.",
-          "Document what is demonstration-only before any real surveillance data is used."
+          "Document limits, assumptions and requirements before any real surveillance data is used."
         ]
       },
       {
         title: "Sources of Inspiration",
         body:
-          "The work is inspired by the United4Surveillance Signal Detection Tool repository, the original Shiny signals view, and ECDC EpiSignalDetection methodological context. This prototype is not endorsed by ECDC or United4Surveillance."
+          "The work is inspired by the United4Surveillance Signal Detection Tool repository, the original Shiny signals view, and ECDC EpiSignalDetection methodological context. This is an independent proposal and does not imply endorsement by ECDC or United4Surveillance."
       },
       {
         title: "Original Git Workflow Covered",
@@ -210,7 +210,7 @@ const copy: Record<Language, {
       {
         title: "Data Notice",
         body:
-          "The bundled Portuguese sample is synthetic. It does not contain real cases, real patients, personal data, identifiable health data, or official surveillance records. Counts and alarms are illustrative and should not be interpreted as epidemiological evidence."
+          "The bundled Portuguese sample is for demonstration. It does not contain real cases, real patients, personal data, identifiable health data, or official surveillance records. Counts and alarms are illustrative and should not be interpreted as epidemiological evidence."
       },
       {
         title: "Methods From the Original Repository",
@@ -260,22 +260,22 @@ const copy: Record<Language, {
       {
         title: "Methodological Limits",
         body:
-          "The browser interface mirrors the epidemiological workflow for evaluation, not production surveillance. FarringtonFlexible and GLM are routed through the local R bridge; EARS and CUSUM remain native prototypes. Validated production use should call the original R implementation or parity-tested workers together with the report pipeline."
+          "The browser interface mirrors the epidemiological workflow for technical evaluation. FarringtonFlexible and GLM use the R integration; EARS and CUSUM require additional operational validation. Production use should rely on parity-tested methods, data governance and epidemiological review."
       },
       {
         title: "Production Readiness Gaps",
         items: [
-          "EARS and CUSUM still need final operational hardening and broader edge-case coverage.",
+          "EARS and CUSUM still need operational validation and broader edge-case coverage.",
           "FarringtonFlexible and GLM are available through the local R bridge, but the bridge is an integration layer rather than the final production endpoint.",
           "DOCX and full Shiny-like HTML report generation still need the R report path.",
-          "Authentication, role-based access, audit logs and retention policies are not active in the public demo.",
+          "Authentication, role-based access, audit logs and retention policies must be defined before real-data use.",
           "Real data use requires DPIA/legal-basis review, data minimisation and operational security controls."
         ]
       },
       {
         title: "Institutional Marks",
         body:
-          "Institutional logos are intentionally not displayed in the current prototype. This avoids implying endorsement, approval, procurement, or operational deployment by any public body while the tool remains under technical evaluation."
+          "Institutional logos are intentionally not displayed. This avoids implying endorsement, approval, procurement, or operational deployment by any public body while the tool remains under technical evaluation."
       },
       {
         title: "Governance and Privacy",
@@ -285,7 +285,7 @@ const copy: Record<Language, {
       {
         title: "Implementation Notes",
         items: [
-          "Frontend prototype: Next.js under apps/web.",
+          "Frontend: Next.js under apps/web.",
           "Worker migration: Python package under migration/python-worker.",
           "R parity harness: migration/r-worker/export_golden_outputs.R.",
           "Methodology notes: methodology.md and migration/ALGORITHM_PARITY.md."
@@ -379,3 +379,5 @@ export default function BackgroundPage() {
     </Suspense>
   );
 }
+
+

@@ -14,7 +14,6 @@ import {
   validateCases
 } from "@/lib/demo";
 import { expectedFields } from "@/lib/reference";
-import { isSupabaseConfigured } from "@/lib/supabase";
 import { portugalDistrictShapes } from "@/lib/ptDistrictMap";
 import { portugalMunicipalityMapMeta, portugalMunicipalityShapesByDistrict, type MunicipalityMapShape } from "@/lib/ptMunicipalityMap";
 import { syntheticMunicipalitiesByDistrict } from "@/lib/ptMunicipalities";
@@ -68,16 +67,16 @@ function fitMunicipalityViewport(shapes: MunicipalityMapShape[]): { zoom: number
   return {
     zoom,
     pan: {
-      x: Math.round(PORTUGAL_MAP_VIEWBOX.width / 2 - shapeCenterX * zoom),
-      y: Math.round(PORTUGAL_MAP_VIEWBOX.height / 2 - shapeCenterY * zoom)
+      x: Math.round(PORTUGAL_MAP_VIEWBOX.width / (2 * zoom) - shapeCenterX),
+      y: Math.round(PORTUGAL_MAP_VIEWBOX.height / (2 * zoom) - shapeCenterY)
     }
   };
 }
 
 const copy = {
   pt: {
-    subtitle: "Protótipo de vigilância epidemiológica",
-    badges: ["Dataset PT sintético", "Deteção de sinais epidemiológicos", "Sem dados reais de saúde"],
+    subtitle: "Vigilância epidemiológica",
+    badges: ["Amostra PT de demonstração", "Deteção de sinais epidemiológicos", "Sem dados pessoais"],
     tabs: {
       help: "Ajuda",
       data: "Dados",
@@ -88,7 +87,7 @@ const copy = {
     metrics: {
       method: "Método, doença e período",
       cases: "Casos e alarmes não estratificados",
-      strata: "Estratos com flag sintética"
+      strata: "Estratos com sinal"
     },
     labels: {
       algorithm: "Algoritmo",
@@ -117,15 +116,15 @@ const copy = {
       run: "Executar deteção",
       sample: "Carregar amostra PT",
       export: "Exportar JSON",
-      createReport: "Criar artefacto de relatório",
+      createReport: "Exportar relatório",
       downloadSample: "Descarregar CSV da amostra PT"
     },
     messages: {
-      loaded: "Lista sintética portuguesa carregada para teste da app: 220 semanas ISO, 2 agentes, 18 distritos e alarmes sintéticos. Não inclui dados reais de saúde.",
-      loadedShort: "Lista sintética portuguesa carregada para teste da app: 220 semanas ISO, 2 agentes, 18 distritos e alarmes sintéticos.",
+      loaded: "Amostra portuguesa de demonstração carregada: 220 semanas ISO, 2 agentes, 18 distritos e sinais simulados. Não contém dados pessoais ou registos reais de vigilância.",
+      loadedShort: "Amostra portuguesa de demonstração carregada: 220 semanas ISO, 2 agentes, 18 distritos e sinais simulados.",
       fixErrors: "Corrige os erros de validação antes de executar a deteção.",
       strata: "Seleciona até 3 variáveis. A seleção atual alimenta o dashboard de Sinais.",
-      prototype: "O protótipo atual calcula um limiar semanal demonstrativo. As taxas brutas por 100 mil só são mostradas quando existe um denominador explícito e adequado; uploads sem tabela populacional ficam em contagens. FarringtonFlexible e GLM são servidos pelo R bridge local; EARS e CUSUM permanecem protótipos nativos pendentes de reforço operacional.",
+      prototype: "A análise calcula limiares semanais para triagem epidemiológica. As taxas brutas por 100 mil só são mostradas quando existe denominador explícito e adequado; ficheiros sem tabela populacional ficam em contagens. FarringtonFlexible e GLM usam a integração R; EARS e CUSUM requerem validação operacional adicional antes de uso em produção.",
       description: "Visualizações e/ou tabelas com o número de casos e, quando disponível, a taxa bruta por 100 mil calculada com um denominador explícito para os estratos selecionados: distrito, age_group e sex."
     },
     strata: {
@@ -135,8 +134,8 @@ const copy = {
       sex: "Sexo"
     },
     signalCountMode: {
-      show: "Mostrar flags sintéticas",
-      hide: "Ocultar flags sintéticas"
+      show: "Mostrar marcadores de sinal",
+      hide: "Ocultar marcadores de sinal"
     },
     methodHint: {
       prefix: "Semanas históricas para ajuste",
@@ -168,9 +167,9 @@ const copy = {
       medium: "médio",
       high: "alto",
       flagged: "com flag",
-      signalFlag: "Flag sintética de surto",
+      signalFlag: "Marcador de sinal",
       source: "Geometria distrital adaptada do SVG público Wikimedia Commons Portuguese Districts Map With Names.",
-      hint: "Clique num distrito para ver concelhos sintéticos.",
+      hint: "Clique num distrito para ver a camada concelhia.",
       back: "Voltar a distritos",
       title: "Casos por concelho",
       filterLabel: "Filtro por concelho",
@@ -188,12 +187,12 @@ const copy = {
       structure: "Estrutura esperada do dataset",
       rowsLoaded: "linhas carregadas",
       rowsAfterFilters: "linhas após os filtros atuais",
-      mandatoryPass: "Todos os campos obrigatórios passam as verificações atuais do protótipo.",
+      mandatoryPass: "Todos os campos obrigatórios passam as verificações atuais.",
       noneDetected: "Nenhuma detetada.",
       missingMandatory: "Linhas com campos obrigatórios em falta",
       missingAge: "idade/age_group em falta",
       negativeAges: "idades negativas",
-      structureIntro: "Esta versão aceita uma line-list CSV de casos e agrega-a por semanas ISO. As taxas brutas só são mostradas quando existe uma fonte de denominador suportada para os filtros selecionados; line-lists de casos carregadas isoladamente ficam apenas em contagens. FarringtonFlexible e GLM são encaminhados pelo R bridge local, enquanto EARS e CUSUM permanecem protótipos nativos.",
+      structureIntro: "Esta versão aceita uma line-list CSV de casos e agrega-a por semanas ISO. As taxas brutas só são mostradas quando existe uma fonte de denominador suportada para os filtros selecionados; line-lists de casos carregadas isoladamente ficam apenas em contagens. FarringtonFlexible e GLM usam a integração R; EARS e CUSUM requerem validação operacional adicional.",
       field: "Campo",
       required: "Obrigatório",
       type: "Tipo",
@@ -213,8 +212,8 @@ const copy = {
       method: "Método",
       denominator: "Denominadores/taxas",
       denominatorText: "as taxas brutas por 100 mil só são mostradas quando os filtros do numerador e o âmbito do denominador são explícitos; line-lists carregadas isoladamente ficam apenas em contagens.",
-      prototypeLimits: "Limites do protótipo",
-      prototypeText: "FarringtonFlexible e GLM são servidos pelo R bridge local; EARS e CUSUM permanecem protótipos nativos.",
+      prototypeLimits: "Estado metodológico",
+      prototypeText: "FarringtonFlexible e GLM usam a integração R; EARS e CUSUM requerem validação operacional adicional.",
       currentFilters: "Filtros atuais",
       district: "distrito",
       municipality: "concelho",
@@ -223,8 +222,8 @@ const copy = {
     }
   },
   en: {
-    subtitle: "Epidemiological surveillance prototype",
-    badges: ["Synthetic PT dataset", "Epidemiological signal detection", "No real health data"],
+    subtitle: "Epidemiological surveillance",
+    badges: ["PT demonstration sample", "Epidemiological signal detection", "No personal data"],
     tabs: {
       help: "Help",
       data: "Data",
@@ -235,7 +234,7 @@ const copy = {
     metrics: {
       method: "Method, disease and period",
       cases: "Unstratified cases and alarms",
-      strata: "Synthetic flagged strata"
+      strata: "Flagged strata"
     },
     labels: {
       algorithm: "Algorithm",
@@ -264,15 +263,15 @@ const copy = {
       run: "Run detection",
       sample: "Load PT sample",
       export: "Export JSON",
-      createReport: "Create report artifact",
+      createReport: "Export report",
       downloadSample: "Download PT sample CSV"
     },
     messages: {
-      loaded: "Portuguese synthetic line-list loaded for app testing: 220 ISO weeks, 2 pathogens, 18 districts and synthetic alarms. No real health data is included.",
-      loadedShort: "Portuguese synthetic line-list loaded for app testing: 220 ISO weeks, 2 pathogens, 18 districts and synthetic alarms.",
+      loaded: "Portuguese demonstration line-list loaded: 220 ISO weeks, 2 pathogens, 18 districts and simulated signals. No personal data is included.",
+      loadedShort: "Portuguese demonstration line-list loaded: 220 ISO weeks, 2 pathogens, 18 districts and simulated signals.",
       fixErrors: "Fix validation errors before running detection.",
       strata: "Select up to 3 variables. Current selection drives the Signals dashboard.",
-      prototype: "Current prototype computes a demo weekly threshold. Crude rates per 100k are only shown when an explicit denominator is available; uploads without a population table remain counts-only. FarringtonFlexible and GLM are served through the local R bridge; EARS and CUSUM remain native prototypes pending further operational hardening.",
+      prototype: "The analysis computes weekly thresholds for epidemiological triage. Crude rates per 100k are shown only when an explicit denominator is available; files without a population table remain counts-only. FarringtonFlexible and GLM use the R integration; EARS and CUSUM require additional operational validation before production use.",
       description: "Visualisations and/or tables showing the number of cases and, when available, the crude rate per 100k computed with an explicit denominator for the selected strata: district, age_group and sex."
     },
     strata: {
@@ -282,8 +281,8 @@ const copy = {
       sex: "Sex"
     },
     signalCountMode: {
-      show: "Show synthetic flags",
-      hide: "Hide synthetic flags"
+      show: "Show signal markers",
+      hide: "Hide signal markers"
     },
     methodHint: {
       prefix: "Historic fitting weeks",
@@ -315,9 +314,9 @@ const copy = {
       medium: "medium",
       high: "high",
       flagged: "flagged",
-      signalFlag: "Synthetic outbreak flag",
+      signalFlag: "Signal marker",
       source: "District geometry adapted from the public-domain Wikimedia Commons SVG Portuguese Districts Map With Names.",
-      hint: "Click a district to view synthetic municipalities.",
+      hint: "Click a district to view the municipality layer.",
       back: "Back to districts",
       title: "Cases by municipality",
       filterLabel: "Municipality filter",
@@ -335,12 +334,12 @@ const copy = {
       structure: "Dataset variable structure",
       rowsLoaded: "rows loaded",
       rowsAfterFilters: "rows after current filters",
-      mandatoryPass: "All mandatory fields pass the current prototype checks.",
+      mandatoryPass: "All mandatory fields pass the current checks.",
       noneDetected: "None detected.",
       missingMandatory: "Missing mandatory rows",
       missingAge: "missing age/age_group",
       negativeAges: "negative ages",
-      structureIntro: "This version accepts a case line-list CSV and aggregates it to ISO weeks. Crude rates are shown only when a supported denominator source is configured for the selected filters; uploaded case line-lists alone are counts-only. FarringtonFlexible and GLM are routed through the local R bridge, while EARS and CUSUM remain native prototypes.",
+      structureIntro: "This version accepts a case line-list CSV and aggregates it to ISO weeks. Crude rates are shown only when a supported denominator source is configured for the selected filters; uploaded case line-lists alone are counts-only. FarringtonFlexible and GLM use the R integration; EARS and CUSUM require additional operational validation.",
       field: "Field",
       required: "Required",
       type: "Type",
@@ -360,8 +359,8 @@ const copy = {
       method: "Method",
       denominator: "Denominator/rates",
       denominatorText: "crude rates per 100k are shown only when numerator filters and denominator scope are explicit; uploaded case line-lists alone remain counts-only.",
-      prototypeLimits: "Prototype limits",
-      prototypeText: "FarringtonFlexible and GLM are served through the local R bridge; EARS and CUSUM remain native prototypes.",
+      prototypeLimits: "Methodological status",
+      prototypeText: "FarringtonFlexible and GLM use the R integration; EARS and CUSUM require additional operational validation.",
       currentFilters: "Current filters",
       district: "district",
       municipality: "municipality",
@@ -598,7 +597,7 @@ function buildShinyLikeHtmlReport({
     ? {
       generated: "Gerado",
       validation: "Estado de validação",
-      validationText: "Relatório executivo baseado nos resultados da aplicação. FarringtonFlexible e GLM usam a bridge R local; EARS e CUSUM são caminhos nativos do protótipo.",
+      validationText: "Relatório executivo baseado nos resultados selecionados. FarringtonFlexible e GLM usam a integração R; EARS e CUSUM devem ser interpretados como métodos em validação operacional.",
       rows: "Linhas",
       weeks: "Semanas ISO",
       alarms: "Alarmes",
@@ -616,12 +615,12 @@ function buildShinyLikeHtmlReport({
       table: "Anexo: tabela semanal",
       noAlarms: "Sem alarmes não estratificados no período de deteção selecionado.",
       alarmText: "casos; limite superior",
-      footer: "Protótipo episignal-pt inspirado no United4Surveillance Signal Detection Tool; não é ferramenta oficial ECDC/United4Surveillance."
+      footer: "episignal-pt é uma proposta independente inspirada no United4Surveillance Signal Detection Tool; não é uma ferramenta oficial ECDC/United4Surveillance."
     }
     : {
       generated: "Generated",
       validation: "Validation status",
-      validationText: "Executive report based on application results. FarringtonFlexible and GLM use the local R bridge; EARS and CUSUM are native prototype paths.",
+      validationText: "Executive report based on the selected results. FarringtonFlexible and GLM use the R integration; EARS and CUSUM should be interpreted as methods under operational validation.",
       rows: "Rows",
       weeks: "ISO weeks",
       alarms: "Alarms",
@@ -639,7 +638,7 @@ function buildShinyLikeHtmlReport({
       table: "Appendix: weekly table",
       noAlarms: "No unstratified alarms in the selected detection period.",
       alarmText: "cases; upper bound",
-      footer: "episignal-pt prototype inspired by the United4Surveillance Signal Detection Tool; not an official ECDC/United4Surveillance tool."
+      footer: "episignal-pt is an independent proposal inspired by the United4Surveillance Signal Detection Tool; it is not an official ECDC/United4Surveillance tool."
     };
   const rowsHtml = results.map((row) => `
     <tr>
@@ -835,10 +834,10 @@ function ReportOnePager({
             ? "Interpretar flags estatísticas em conjunto com magnitude, concentração territorial, distribuição por idade/sexo e plausibilidade temporal."
             : "Interpret statistical flags alongside magnitude, territorial concentration, age/sex distribution and temporal plausibility."}</p>
           <p>{denominatorNote ?? (isPt ? "Sem denominador específico: leitura em contagens." : "No specific denominator: counts-only reading.")}</p>
-          <p><strong>{isPt ? "Limitação:" : "Limitation:"}</strong> {isPt ? "amostra sintética; não contém dados reais de saúde." : "synthetic sample; contains no real health data."}</p>
+          <p><strong>{isPt ? "Limitação:" : "Limitation:"}</strong> {isPt ? "amostra de demonstração; não contém dados pessoais ou registos reais de vigilância." : "demonstration sample; contains no personal data or real surveillance records."}</p>
         </section>
       </div>
-      <footer>{isPt ? "Sintético, sem dados reais de saúde. Usar como suporte de triagem, não como confirmação automática de surto." : "Synthetic, no real health data. Use as triage support, not automatic outbreak confirmation."}</footer>
+      <footer>{isPt ? "Amostra de demonstração. Usar como suporte de triagem, não como confirmação automática de surto." : "Demonstration sample. Use as triage support, not automatic outbreak confirmation."}</footer>
     </div>
   );
 }
@@ -906,9 +905,6 @@ function AppHeader({
         <div>
           <p>{t.subtitle}</p>
           <h1>Signal Detection Tool</h1>
-          <div className={styles.headerBadges} aria-label="Application status">
-            {t.badges.map((badge) => <span key={badge}>{badge}</span>)}
-          </div>
         </div>
       </div>
       <div className={styles.headerActions}>
@@ -1200,7 +1196,7 @@ function MunicipalityDrilldown({
           <div className={styles.municipalityViewport}>
             {panControls}
             <svg viewBox={portugalMunicipalityMapMeta.viewBox} role="img" aria-label={`${title}, ${district}`}>
-              <g className={styles.portugalMap} style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
+              <g className={styles.portugalMap} transform={`translate(${pan.x} ${pan.y}) scale(${zoom})`}>
                 {shapes.map((shape) => {
                   const item = byMunicipality.get(shape.municipality) ?? { label: shape.municipality, cases: 0, signals: 0, signal: false };
                   const muted = selectedMunicipality !== "All" && !visibleShapeNames.has(shape.municipality);
@@ -1267,8 +1263,8 @@ function GroupedBarChart({
         {controls}
       </figcaption>
       <div className={styles.legend}>
-        <span><i className={styles.signalKey} /> Synthetic outbreak flag</span>
-        <span><i className={styles.noSignalKey} /> No synthetic flag</span>
+        <span><i className={styles.signalKey} /> Signal marker</span>
+        <span><i className={styles.noSignalKey} /> No signal marker</span>
       </div>
       <div className={styles.strataBars}>
         {items.map((item) => (
@@ -1358,13 +1354,16 @@ function TimeSeriesChart({
   results,
   detectionWeeks,
   visibleWeeksTarget,
-  controls
+  controls,
+  language
 }: {
   results: WeeklyResult[];
   detectionWeeks: number;
   visibleWeeksTarget: number;
   controls: ReactNode;
+  language: Language;
 }) {
+  const isPt = language === "pt";
   const width = 920;
   const height = 330;
   const pad = { top: 42, right: 34, bottom: 58, left: 62 };
@@ -1394,20 +1393,22 @@ function TimeSeriesChart({
   return (
     <figure className={styles.timeSeriesPanel}>
       <figcaption>
-        <span>Weekly signal model view</span>
+        <span>{isPt ? "Série temporal e limiar de alarme" : "Time series and alarm threshold"}</span>
         {controls}
         <small>
-          {hiddenWeeks > 0 ? `Showing last ${visibleResults.length} of ${results.length} ISO weeks. ` : ""}
-          Detection window: last {detectionWeeks} weeks.
+          {hiddenWeeks > 0
+            ? (isPt ? `Últimas ${visibleResults.length} de ${results.length} semanas ISO. ` : `Showing last ${visibleResults.length} of ${results.length} ISO weeks. `)
+            : ""}
+          {isPt ? `Janela de deteção: últimas ${detectionWeeks} semanas.` : `Detection window: last ${detectionWeeks} weeks.`}
         </small>
       </figcaption>
-      <div className={styles.modelChips} aria-label="Model diagnostics">
-        <span>History before window: {historyWeeks} weeks</span>
-        <span>Alarms in view: {alarms}</span>
-        <span>Latest expected: {latest?.expected === null || latest?.expected === undefined ? "n/a" : latest.expected.toFixed(1)}</span>
-        <span>Latest upper bound: {latest?.upperbound === null || latest?.upperbound === undefined ? "n/a" : latest.upperbound.toFixed(1)}</span>
+      <div className={styles.modelChips} aria-label={isPt ? "Diagnóstico do modelo" : "Model diagnostics"}>
+        <span>{isPt ? "Histórico antes da janela" : "History before window"}: {historyWeeks} {isPt ? "semanas" : "weeks"}</span>
+        <span>{isPt ? "Alarmes visíveis" : "Alarms in view"}: {alarms}</span>
+        <span>{isPt ? "Esperado mais recente" : "Latest expected"}: {latest?.expected === null || latest?.expected === undefined ? "n/a" : latest.expected.toFixed(1)}</span>
+        <span>{isPt ? "Limite superior mais recente" : "Latest upper bound"}: {latest?.upperbound === null || latest?.upperbound === undefined ? "n/a" : latest.upperbound.toFixed(1)}</span>
       </div>
-      <svg className={styles.timeChart} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Weekly cases, alarms and upper threshold">
+      <svg className={styles.timeChart} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={isPt ? "Casos semanais, alarmes e limite superior" : "Weekly cases, alarms and upper threshold"}>
         <rect className={styles.detectionBand} x={detectionX} y={pad.top} width={detectionWidth} height={plotHeight} />
         {[0, 0.25, 0.5, 0.75, 1].map((tick) => {
           const y = pad.top + plotHeight - tick * plotHeight;
@@ -1599,7 +1600,6 @@ function HomeContent() {
     }),
     [ageGroupItems, districtItems, sexItems]
   );
-  const supabaseConfigured = isSupabaseConfigured();
   const signalCount = signalStrata.age_group + signalStrata.district + signalStrata.sex;
   const nudgeMapPan = (dx: number, dy: number) => {
     setMapPan((current) => ({
@@ -1693,7 +1693,9 @@ function HomeContent() {
       setMessage(t.messages.fixErrors);
       return;
     }
-    setMessage(`${methodOptions.find((option) => option.value === method)?.label ?? method} run completed on ${rows.length} rows with alpha ${alphaUpper.toFixed(3)}. Native algorithm outputs remain prototype; R-backed methods are served through the local bridge.`);
+    setMessage(language === "pt"
+      ? `${methodOptions.find((option) => option.value === method)?.label ?? method}: análise concluída em ${rows.length} linhas, com p-value cutoff ${alphaUpper.toFixed(3)}. Confirme os sinais com contexto epidemiológico, qualidade dos dados e denominadores.`
+      : `${methodOptions.find((option) => option.value === method)?.label ?? method}: analysis completed on ${rows.length} rows with p-value cutoff ${alphaUpper.toFixed(3)}. Interpret signals with epidemiological context, data quality and denominators.`);
   }
 
   async function handleFile(file: File | null) {
@@ -2045,7 +2047,7 @@ function HomeContent() {
         ) : null}
         {selectedStrata.includes("age_group") ? (
           <GroupedBarChart
-            title={`Cases by age group, ${periodText}`}
+            title={`${language === "pt" ? "Casos por grupo etário" : "Cases by age group"}, ${periodText}`}
             items={ageGroupItems}
             max={ageGroupMax}
             showSignalCounts={showSignalCounts}
@@ -2067,7 +2069,7 @@ function HomeContent() {
         ) : null}
         {selectedStrata.includes("sex") ? (
           <GroupedBarChart
-            title={`Cases by sex, ${periodText}`}
+            title={`${language === "pt" ? "Casos por sexo" : "Cases by sex"}, ${periodText}`}
             items={sexItems}
             max={sexMax}
             showSignalCounts={showSignalCounts}
@@ -2087,7 +2089,7 @@ function HomeContent() {
             )}
           />
         ) : null}
-        {selectedStrata.length === 0 ? <article className={styles.panel}>Select at least one stratum in Input parameters.</article> : null}
+        {selectedStrata.length === 0 ? <article className={styles.panel}>{language === "pt" ? "Selecione pelo menos um estrato em Parâmetros." : "Select at least one stratum in Input parameters."}</article> : null}
       </section>
 
       <section hidden={activeSection !== "signals"}>
@@ -2095,6 +2097,7 @@ function HomeContent() {
           results={results}
           detectionWeeks={detectionWeeks}
           visibleWeeksTarget={effectiveTimeWindowWeeks}
+          language={language}
           controls={(
             <ChartControl
               label={t.chartControls.timeWindow}
@@ -2115,7 +2118,7 @@ function HomeContent() {
         <article className={styles.panel}>
           <div className={styles.panelHeader}>
             <h2>{language === "pt" ? "Pré-visualização 16:9" : "16:9 preview"}</h2>
-            <span>{summary.rows} rows · {summary.weeks} ISO weeks · Supabase {supabaseConfigured ? "configured" : "not configured"}</span>
+            <span>{summary.rows} {language === "pt" ? "linhas" : "rows"} · {summary.weeks} {language === "pt" ? "semanas ISO" : "ISO weeks"} · {language === "pt" ? "relatório resumido" : "summary report"}</span>
           </div>
           <ReportOnePager
             title={reportTitle}
@@ -2243,3 +2246,5 @@ export default function Home() {
     </Suspense>
   );
 }
+
+

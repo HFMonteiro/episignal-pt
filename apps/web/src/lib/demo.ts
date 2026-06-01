@@ -115,13 +115,13 @@ export function resolveCrudeDenominator(
       upload: "A taxa bruta por 100 mil não é calculada para uploads sem uma tabela de população explícita.",
       sex: "A taxa bruta por 100 mil não é calculada para estratificação por sexo porque falta um denominador sexo-específico.",
       district: (district: string) => `Taxa bruta por 100 mil calculada com denominador de referência sintético para o distrito ${district}.`,
-      national: "Taxa bruta por 100 mil calculada com denominador de referência sintético nacional do conjunto de demonstração."
+      national: "Taxa bruta por 100 mil calculada com denominador de referência da amostra de demonstração."
     },
     en: {
       upload: "The crude rate per 100k is not computed for uploads without an explicit population table.",
       sex: "The crude rate per 100k is not computed for sex stratification because a sex-specific denominator is not available.",
       district: (district: string) => `Crude rate per 100k computed with the synthetic reference denominator for district ${district}.`,
-      national: "Crude rate per 100k computed with the synthetic national reference denominator for the demo dataset."
+      national: "Crude rate per 100k computed with the demonstration reference denominator."
     }
   }[language];
 
@@ -143,8 +143,8 @@ export function resolveCrudeDenominator(
       population: null,
       note:
         language === "pt"
-          ? `Sem denominador de referência sintético para o distrito ${selectedDistrict}.`
-          : `No synthetic reference denominator is available for district ${selectedDistrict}.`
+          ? `Sem denominador de referência para o distrito ${selectedDistrict}.`
+          : `No reference denominator is available for district ${selectedDistrict}.`
     };
   }
 
@@ -398,3 +398,4 @@ export function toCsv(rows: CaseRecord[]): string {
     )
   ].join("\n");
 }
+

@@ -60,8 +60,8 @@ export const expectedFields = [
     required: "No",
     requiredPt: "Não",
     type: "string | number",
-    description: "Regional variables for maps and stratification. The demo uses Portuguese districts such as Porto, Lisboa, Coimbra and Faro.",
-    descriptionPt: "Variáveis territoriais para mapas e estratificação. A demo usa distritos portugueses como Porto, Lisboa, Coimbra e Faro."
+    description: "Regional variables for maps and stratification. The sample uses Portuguese districts such as Porto, Lisboa, Coimbra and Faro.",
+    descriptionPt: "Variáveis territoriais para mapas e estratificação. A amostra usa distritos portugueses como Porto, Lisboa, Coimbra e Faro."
   },
   {
     name: "outbreak_status",
@@ -95,9 +95,9 @@ export const supabaseTables = [
     sensitive: "Aggregated"
   },
   {
-    name: "report_artifacts",
+    name: "report_exports",
     purpose: "Links to generated HTML/Word/CSV/JSON outputs in private Storage.",
-    sensitive: "Depends on artifact"
+    sensitive: "Depends on export content"
   }
 ];
 
@@ -112,10 +112,12 @@ export const vercelStructure = [
   },
   {
     path: "migration/python-worker",
-    role: "FastAPI/Python prototype for validation, preprocessing, ISO aggregation, EARS and CUSUM."
+    role: "FastAPI/Python worker for validation, preprocessing, ISO aggregation, EARS and CUSUM."
   },
   {
     path: "R/",
     role: "Original validated R package logic. Keep FarringtonFlexible, GLM, reports here until parity tests exist."
   }
 ];
+
+
