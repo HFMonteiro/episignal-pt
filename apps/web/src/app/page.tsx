@@ -38,6 +38,41 @@ type NavTab =
 type StrataKey = "district" | "age_group" | "sex";
 type MapLevel = "district" | "municipality";
 type MapPan = { x: number; y: number };
+type ReportLanguage = "pt" | "en";
+
+const PORTUGAL_MAP_VIEWBOX = { width: 379.499, height: 547.489 };
+const MUNICIPALITY_MIN_ZOOM = 2.5;
+const MUNICIPALITY_MAX_ZOOM = 5;
+
+function fitMunicipalityViewport(shapes: MunicipalityMapShape[]): { zoom: number; pan: MapPan } {
+  if (!shapes.length) return { zoom: MUNICIPALITY_MIN_ZOOM, pan: { x: 0, y: 0 } };
+
+  const bbox = shapes.reduce<[number, number, number, number]>(
+    (current, shape) => [
+      Math.min(current[0], shape.bbox[0]),
+      Math.min(current[1], shape.bbox[1]),
+      Math.max(current[2], shape.bbox[2]),
+      Math.max(current[3], shape.bbox[3])
+    ],
+    [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY]
+  );
+  const shapeWidth = Math.max(1, bbox[2] - bbox[0]);
+  const shapeHeight = Math.max(1, bbox[3] - bbox[1]);
+  const rawZoom = Math.min(
+    (PORTUGAL_MAP_VIEWBOX.width * 0.82) / shapeWidth,
+    (PORTUGAL_MAP_VIEWBOX.height * 0.82) / shapeHeight
+  );
+  const zoom = Math.min(MUNICIPALITY_MAX_ZOOM, Math.max(MUNICIPALITY_MIN_ZOOM, rawZoom));
+  const shapeCenterX = (bbox[0] + bbox[2]) / 2;
+  const shapeCenterY = (bbox[1] + bbox[3]) / 2;
+  return {
+    zoom,
+    pan: {
+      x: Math.round(PORTUGAL_MAP_VIEWBOX.width / 2 - shapeCenterX * zoom),
+      y: Math.round(PORTUGAL_MAP_VIEWBOX.height / 2 - shapeCenterY * zoom)
+    }
+  };
+}
 
 const copy = {
   pt: {
@@ -539,6 +574,7 @@ function buildShinyLikeHtmlReport({
   title,
   format,
   includeTables,
+  language,
   summary,
   signalCount,
   parameters,
@@ -548,6 +584,7 @@ function buildShinyLikeHtmlReport({
   title: string;
   format: string;
   includeTables: boolean;
+  language: ReportLanguage;
   summary: ReturnType<typeof summarize>;
   signalCount: number;
   parameters: Record<string, unknown>;
@@ -556,6 +593,54 @@ function buildShinyLikeHtmlReport({
 }): string {
   const generatedAt = new Date().toISOString();
   const alarmRows = results.filter((row) => row.alarm);
+  const isPt = language === "pt";
+  const labels = isPt
+    ? {
+      generated: "Gerado",
+      validation: "Estado de validação",
+      validationText: "Relatório executivo baseado nos resultados da aplicação. FarringtonFlexible e GLM usam a bridge R local; EARS e CUSUM são caminhos nativos do protótipo.",
+      rows: "Linhas",
+      weeks: "Semanas ISO",
+      alarms: "Alarmes",
+      flags: "Estratos com flag",
+      parameters: "Parâmetros críticos",
+      method: "Método",
+      disease: "Agente/doença",
+      detectionWeeks: "Semanas de deteção",
+      alpha: "p-value cutoff",
+      filters: "Filtros",
+      interpretation: "Interpretação epidemiológica",
+      interpretationText: "A leitura deve combinar magnitude, distribuição territorial/demográfica, plausibilidade temporal e qualidade do denominador. Uma flag estatística não é, por si só, confirmação de surto.",
+      limitations: "Limitações",
+      limitationsText: "Amostra sintética sem dados reais de saúde. Uso operacional requer governação, base legal, controlo de acessos, retenção documentada, validação local e revisão epidemiológica.",
+      table: "Anexo: tabela semanal",
+      noAlarms: "Sem alarmes não estratificados no período de deteção selecionado.",
+      alarmText: "casos; limite superior",
+      footer: "Protótipo episignal-pt inspirado no United4Surveillance Signal Detection Tool; não é ferramenta oficial ECDC/United4Surveillance."
+    }
+    : {
+      generated: "Generated",
+      validation: "Validation status",
+      validationText: "Executive report based on application results. FarringtonFlexible and GLM use the local R bridge; EARS and CUSUM are native prototype paths.",
+      rows: "Rows",
+      weeks: "ISO weeks",
+      alarms: "Alarms",
+      flags: "Flagged strata",
+      parameters: "Critical parameters",
+      method: "Method",
+      disease: "Disease/pathogen",
+      detectionWeeks: "Detection weeks",
+      alpha: "p-value cutoff",
+      filters: "Filters",
+      interpretation: "Epidemiological interpretation",
+      interpretationText: "Interpretation should combine magnitude, territorial/demographic distribution, temporal plausibility and denominator quality. A statistical flag is not, by itself, outbreak confirmation.",
+      limitations: "Limitations",
+      limitationsText: "Synthetic sample without real health data. Operational use requires governance, legal basis, access control, documented retention, local validation and epidemiological review.",
+      table: "Appendix: weekly table",
+      noAlarms: "No unstratified alarms in the selected detection period.",
+      alarmText: "cases; upper bound",
+      footer: "episignal-pt prototype inspired by the United4Surveillance Signal Detection Tool; not an official ECDC/United4Surveillance tool."
+    };
   const rowsHtml = results.map((row) => `
     <tr>
       <td>${row.year}</td>
@@ -568,81 +653,194 @@ function buildShinyLikeHtmlReport({
       <td>${row.ratePer100k === null ? "" : row.ratePer100k.toFixed(2)}</td>
     </tr>
   `).join("");
+  const chartRows = results.slice(-16);
+  const chartMax = Math.max(1, ...chartRows.map((row) => Math.max(row.cases, row.upperbound ?? 0)));
+  const barsHtml = chartRows.map((row) => {
+    const barHeight = Math.max(6, Math.round((row.cases / chartMax) * 92));
+    const thresholdHeight = row.upperbound === null ? 0 : Math.max(4, Math.round((row.upperbound / chartMax) * 92));
+    return `<div class="barSlot" title="ISO ${row.year}-W${row.week}: ${row.cases}">
+      <span class="threshold" style="height:${thresholdHeight}px"></span>
+      <span class="bar ${row.alarm ? "alarmBar" : ""}" style="height:${barHeight}px"></span>
+    </div>`;
+  }).join("");
+  const strataHtml = [
+    ["age_group", signalStrata.age_group],
+    ["district", signalStrata.district],
+    ["sex", signalStrata.sex]
+  ].map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join("");
   const denominatorNote = typeof parameters.denominatorNote === "string" ? parameters.denominatorNote : "";
   const alarmHtml = alarmRows.length
-    ? alarmRows.map((row) => `<li>ISO ${row.year}-W${row.week}: ${row.cases} cases; upper bound ${row.upperbound?.toFixed(2) ?? "n/a"}.</li>`).join("")
-    : "<li>No unstratified alarms in the selected detection period.</li>";
+    ? alarmRows.map((row) => `<li>ISO ${row.year}-W${row.week}: ${row.cases} ${labels.alarmText} ${row.upperbound?.toFixed(2) ?? "n/a"}.</li>`).join("")
+    : `<li>${labels.noAlarms}</li>`;
 
   return `<!doctype html>
-<html lang="en">
+<html lang="${language}">
 <head>
   <meta charset="utf-8" />
   <title>${escapeHtml(title)}</title>
   <style>
-    body { margin: 32px; color: #111827; font-family: Arial, sans-serif; }
-    header { border-bottom: 4px solid #304794; padding-bottom: 16px; margin-bottom: 22px; }
-    h1 { margin: 0 0 8px; font-size: 28px; }
-    h2 { margin-top: 28px; color: #304794; font-size: 18px; }
-    .meta, .warning { border: 1px solid #d7dce6; padding: 14px; background: #f8f9fc; }
-    .warning { border-color: #df536b; background: #fff0f2; }
-    .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 18px 0; }
-    .metric { background: #304794; color: white; padding: 14px; }
-    .metric strong { display: block; font-size: 24px; }
+    body { margin: 24px; color: #111827; font-family: Arial, sans-serif; background: #eef2f7; }
+    .slide { aspect-ratio: 16 / 9; max-width: 1280px; margin: 0 auto; background: #fff; border: 1px solid #d7dce6; box-shadow: 0 20px 45px rgba(15,23,42,.16); padding: 28px; display: grid; grid-template-rows: auto auto 1fr auto; gap: 18px; }
+    header { display: flex; justify-content: space-between; gap: 24px; border-bottom: 4px solid #304794; padding-bottom: 14px; }
+    h1 { margin: 0 0 8px; font-size: 30px; }
+    h2 { margin: 0 0 10px; color: #304794; font-size: 17px; }
+    .warning { border: 1px solid #df536b; background: #fff0f2; padding: 12px; }
+    .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .metric { background: #304794; color: white; padding: 14px; border-radius: 6px; }
+    .metric strong { display: block; font-size: 26px; }
+    .content { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; min-height: 0; }
+    .box { border: 1px solid #d7dce6; background: #f8fafc; padding: 14px; border-radius: 6px; font-size: 13px; line-height: 1.45; }
+    .box p { margin: 6px 0; }
+    .chartBox { display: grid; grid-template-rows: auto 1fr; gap: 8px; }
+    .miniChart { height: 128px; display: grid; grid-template-columns: repeat(16, 1fr); align-items: end; gap: 5px; border-left: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; padding: 8px 8px 0; }
+    .barSlot { position: relative; height: 110px; display: flex; align-items: end; justify-content: center; }
+    .bar { width: 100%; max-width: 18px; display: block; background: #304794; border-radius: 4px 4px 0 0; }
+    .alarmBar { background: #df536b; box-shadow: 0 0 0 2px rgba(223,83,107,.22); }
+    .threshold { position: absolute; left: 50%; width: 2px; transform: translateX(-50%); bottom: 0; background: rgba(223,83,107,.45); }
+    .strataMini { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+    .strataMini div { background: #fff; border: 1px solid #d7dce6; border-radius: 6px; padding: 8px; }
+    .strataMini strong { display: block; color: #304794; font-size: 20px; }
+    ul { margin: 8px 0 0 18px; padding: 0; }
     table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 12px; }
     th, td { border: 1px solid #d7dce6; padding: 7px 8px; text-align: left; }
     th { background: #eef1f8; }
     .alarm { color: #b42318; font-weight: 700; }
-    footer { margin-top: 34px; color: #667085; font-size: 12px; }
+    footer { color: #667085; font-size: 12px; }
+    .appendix { max-width: 1280px; margin: 24px auto; background: white; padding: 20px; border: 1px solid #d7dce6; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>${escapeHtml(title)}</h1>
-    <div>Generated: ${generatedAt}</div>
-  </header>
-  <section class="warning">
-    <strong>Validation status:</strong> this report mirrors the Shiny workflow, but operational use still depends on parity-tested workers. FarringtonFlexible and GLM are already routed through the local R bridge; EARS and CUSUM remain native prototype paths pending broader operational hardening.
-  </section>
-  <section class="metrics">
-    <div class="metric"><span>Rows</span><strong>${summary.rows}</strong></div>
-    <div class="metric"><span>ISO weeks</span><strong>${summary.weeks}</strong></div>
-    <div class="metric"><span>Signals</span><strong>${summary.signals}</strong></div>
-    <div class="metric"><span>Synthetic flagged strata</span><strong>${signalCount}</strong></div>
-  </section>
-  <section class="meta">
-    <h2>Input parameters</h2>
-    <p><strong>Method:</strong> ${escapeHtml(methodLabel(String(parameters.method)))} (${escapeHtml(String(parameters.method))})</p>
-    <p><strong>Disease/pathogen:</strong> ${escapeHtml(parameters.disease)}</p>
-    <p><strong>Detection weeks:</strong> ${escapeHtml(parameters.detectionWeeks)}</p>
-    <p><strong>Alpha:</strong> ${escapeHtml(Number(parameters.alphaUpper ?? 0.05).toFixed(3))}</p>
-    <p><strong>Denominator population:</strong> ${escapeHtml(summary.population === null ? "n/a" : summary.population.toLocaleString())}</p>
-    <p><strong>Crude rate per 100k:</strong> ${escapeHtml(summary.latestRatePer100k === null ? "n/a" : summary.latestRatePer100k.toFixed(1))}</p>
-    <p><strong>Filters:</strong> district ${escapeHtml(parameters.selectedDistrict)}, sex ${escapeHtml(parameters.selectedSex)}, dates ${escapeHtml(parameters.dateFrom)} to ${escapeHtml(parameters.dateTo)}</p>
-    <p><strong>Strata:</strong> ${escapeHtml(Array.isArray(parameters.selectedStrata) ? parameters.selectedStrata.join(", ") : "")}</p>
-    <p><strong>Requested format:</strong> ${escapeHtml(format)}; include tables: ${includeTables ? "yes" : "no"}</p>
-  </section>
-  <section>
-    <h2>Summary interpretation</h2>
-    <p>The analysis evaluated the filtered line-list across the last ${summary.detectionWeeks} ISO weeks. Crude rates per 100k are shown only when the numerator filters and denominator scope are explicit; uploaded case line-lists alone remain counts-only. FarringtonFlexible and GLM are served through the local R bridge; EARS and CUSUM remain native prototypes.</p>
-    ${denominatorNote ? `<p>${escapeHtml(denominatorNote)}</p>` : ""}
-    <ul>${alarmHtml}</ul>
-  </section>
-  <section>
-    <h2>Synthetic flags by selected stratum</h2>
-    <ul>
-      <li>age_group: ${signalStrata.age_group}</li>
-      <li>district: ${signalStrata.district}</li>
-      <li>sex: ${signalStrata.sex}</li>
-    </ul>
-  </section>
-  ${includeTables ? `<section><h2>Weekly output table</h2><table><thead><tr><th>Year</th><th>Week</th><th>Cases</th><th>Signal</th><th>Expected</th><th>Upper bound</th><th>Denominator</th><th>Crude rate/100k</th></tr></thead><tbody>${rowsHtml}</tbody></table></section>` : ""}
-  <section>
-    <h2>Governance notes</h2>
-    <p>Do not include direct identifiers in uploaded data. Store uploads and generated reports in private storage with access control, audit logs, retention rules and documented legal basis before using real health data.</p>
-  </section>
-  <footer>Signal Detection Tool PT prototype. Inspired by United4Surveillance Signal Detection Tool and Shiny report workflow.</footer>
+  <main class="slide">
+    <header>
+      <div><h1>${escapeHtml(title)}</h1><div>${escapeHtml(parameters.disease)} · ${escapeHtml(parameters.dateFrom)} - ${escapeHtml(parameters.dateTo)}</div></div>
+      <div>${labels.generated}: ${generatedAt}<br />${escapeHtml(format)}</div>
+    </header>
+    <section class="warning"><strong>${labels.validation}:</strong> ${labels.validationText}</section>
+    <section class="metrics">
+      <div class="metric"><span>${labels.rows}</span><strong>${summary.rows}</strong></div>
+      <div class="metric"><span>${labels.weeks}</span><strong>${summary.weeks}</strong></div>
+      <div class="metric"><span>${labels.alarms}</span><strong>${summary.signals}</strong></div>
+      <div class="metric"><span>${labels.flags}</span><strong>${signalCount}</strong></div>
+    </section>
+    <section class="content">
+      <div class="box">
+        <h2>${labels.parameters}</h2>
+        <p><strong>${labels.method}:</strong> ${escapeHtml(methodLabel(String(parameters.method)))} (${escapeHtml(String(parameters.method))})</p>
+        <p><strong>${labels.disease}:</strong> ${escapeHtml(parameters.disease)}</p>
+        <p><strong>${labels.detectionWeeks}:</strong> ${escapeHtml(parameters.detectionWeeks)}</p>
+        <p><strong>${labels.alpha}:</strong> ${escapeHtml(Number(parameters.alphaUpper ?? 0.05).toFixed(3))}</p>
+        <p><strong>${labels.filters}:</strong> district ${escapeHtml(parameters.selectedDistrict)}, municipality ${escapeHtml(parameters.selectedMunicipality)}, sex ${escapeHtml(parameters.selectedSex)}</p>
+        <p><strong>${labels.flags}:</strong> age_group ${signalStrata.age_group}; district ${signalStrata.district}; sex ${signalStrata.sex}</p>
+        <div class="strataMini">${strataHtml}</div>
+      </div>
+      <div class="box chartBox">
+        <h2>${isPt ? "Curva temporal principal" : "Main time-series chart"}</h2>
+        <div class="miniChart">${barsHtml}</div>
+        <p>${isPt ? "Barras: casos semanais; vermelho: alarme; linha: limite superior/modelo." : "Bars: weekly cases; red: alarm; line: upper/model threshold."}</p>
+      </div>
+      <div class="box">
+        <h2>${labels.interpretation}</h2>
+        <p>${labels.interpretationText}</p>
+        ${denominatorNote ? `<p>${escapeHtml(denominatorNote)}</p>` : ""}
+        <ul>${alarmHtml}</ul>
+        <h2>${labels.limitations}</h2>
+        <p>${labels.limitationsText}</p>
+      </div>
+    </section>
+    <footer>${labels.footer}</footer>
+  </main>
+  ${includeTables ? `<section class="appendix"><h2>${labels.table}</h2><table><thead><tr><th>Year</th><th>Week</th><th>Cases</th><th>Signal</th><th>Expected</th><th>Upper bound</th><th>Denominator</th><th>Crude rate/100k</th></tr></thead><tbody>${rowsHtml}</tbody></table></section>` : ""}
 </body>
 </html>`;
+}
+
+function ReportOnePager({
+  title,
+  language,
+  disease,
+  periodText,
+  method,
+  alphaUpper,
+  summary,
+  results,
+  signalCount,
+  signalStrata,
+  unstratifiedAlarms,
+  denominatorNote
+}: {
+  title: string;
+  language: ReportLanguage;
+  disease: string;
+  periodText: string;
+  method: string;
+  alphaUpper: number;
+  summary: ReturnType<typeof summarize>;
+  results: WeeklyResult[];
+  signalCount: number;
+  signalStrata: Record<string, number>;
+  unstratifiedAlarms: number;
+  denominatorNote: string | null;
+}) {
+  const isPt = language === "pt";
+  const chartRows = results.slice(-16);
+  const chartMax = Math.max(1, ...chartRows.map((row) => Math.max(row.cases, row.upperbound ?? 0)));
+  return (
+    <div className={styles.reportSlidePreview}>
+      <header>
+        <div>
+          <span>{isPt ? "Relatório executivo epidemiológico" : "Executive epidemiological report"}</span>
+          <h2>{title}</h2>
+          <p>{disease} · {periodText}</p>
+        </div>
+        <strong>{new Date().toLocaleDateString(isPt ? "pt-PT" : "en-GB")}</strong>
+      </header>
+      <div className={styles.reportKpis}>
+        <div><span>{isPt ? "Casos filtrados" : "Filtered cases"}</span><strong>{summary.rows}</strong></div>
+        <div><span>{isPt ? "Semanas ISO" : "ISO weeks"}</span><strong>{summary.weeks}</strong></div>
+        <div><span>{isPt ? "Alarmes" : "Alarms"}</span><strong>{unstratifiedAlarms}</strong></div>
+        <div><span>{isPt ? "Estratos flagged" : "Flagged strata"}</span><strong>{signalCount}</strong></div>
+      </div>
+      <div className={styles.reportSlideGrid}>
+        <section>
+          <h3>{isPt ? "Método e parâmetros críticos" : "Method and critical parameters"}</h3>
+          <p><strong>{methodLabel(method)}</strong></p>
+          <p>alpha / p-value cutoff: {alphaUpper.toFixed(3)}</p>
+          <p>{isPt ? "Taxa bruta por 100 mil" : "Crude rate per 100k"}: {summary.latestRatePer100k === null ? "n/a" : summary.latestRatePer100k.toFixed(1)}</p>
+          <p>{isPt ? "População denominador" : "Denominator population"}: {summary.population === null ? "n/a" : summary.population.toLocaleString()}</p>
+          <div className={styles.reportStrataMini}>
+            <span>age_group <strong>{signalStrata.age_group}</strong></span>
+            <span>district <strong>{signalStrata.district}</strong></span>
+            <span>sex <strong>{signalStrata.sex}</strong></span>
+          </div>
+        </section>
+        <section>
+          <h3>{isPt ? "Curva temporal principal" : "Main time-series chart"}</h3>
+          <div className={styles.reportMiniChart} aria-label={isPt ? "Casos semanais e limite de alarme" : "Weekly cases and alarm threshold"}>
+            {chartRows.map((row) => {
+              const barHeight = Math.max(6, Math.round((row.cases / chartMax) * 100));
+              const thresholdHeight = row.upperbound === null ? 0 : Math.max(4, Math.round((row.upperbound / chartMax) * 100));
+              return (
+                <span key={`${row.year}-${row.week}`} className={styles.reportMiniSlot} title={`ISO ${row.year}-W${row.week}: ${row.cases}`}>
+                  <i style={{ height: `${thresholdHeight}%` }} />
+                  <b className={row.alarm ? styles.reportAlarmBar : ""} style={{ height: `${barHeight}%` }} />
+                </span>
+              );
+            })}
+          </div>
+          <p>{isPt ? "Barras: casos semanais; vermelho: alarme; linha: limite superior/modelo." : "Bars: weekly cases; red: alarm; line: upper/model threshold."}</p>
+        </section>
+        <section>
+          <h3>{isPt ? "Leitura epidemiológica" : "Epidemiological reading"}</h3>
+          <p>{isPt
+            ? "Interpretar flags estatísticas em conjunto com magnitude, concentração territorial, distribuição por idade/sexo e plausibilidade temporal."
+            : "Interpret statistical flags alongside magnitude, territorial concentration, age/sex distribution and temporal plausibility."}</p>
+          <p>{denominatorNote ?? (isPt ? "Sem denominador específico: leitura em contagens." : "No specific denominator: counts-only reading.")}</p>
+          <p><strong>{isPt ? "Limitação:" : "Limitation:"}</strong> {isPt ? "amostra sintética; não contém dados reais de saúde." : "synthetic sample; contains no real health data."}</p>
+        </section>
+      </div>
+      <footer>{isPt ? "Sintético, sem dados reais de saúde. Usar como suporte de triagem, não como confirmação automática de surto." : "Synthetic, no real health data. Use as triage support, not automatic outbreak confirmation."}</footer>
+    </div>
+  );
 }
 
 function MiniTabs({
@@ -843,7 +1041,6 @@ function PortugalDistrictMap({
   zoom,
   pan,
   controls,
-  panControls,
   title,
   ariaLabel,
   hint,
@@ -856,7 +1053,6 @@ function PortugalDistrictMap({
   zoom: number;
   pan: MapPan;
   controls: ReactNode;
-  panControls: ReactNode;
   title: string;
   ariaLabel: string;
   hint: string;
@@ -883,7 +1079,6 @@ function PortugalDistrictMap({
       <div className={styles.svgMapWrap}>
         <p className={styles.mapSource}>{hint}</p>
         <div className={styles.mapViewport}>
-          {panControls}
           <svg viewBox="0 0 379.499 547.489" role="img" aria-label={ariaLabel}>
             <g className={styles.portugalMap} style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
               {portugalDistrictShapes.map((shape) => {
@@ -1408,17 +1603,23 @@ function HomeContent() {
   const signalCount = signalStrata.age_group + signalStrata.district + signalStrata.sex;
   const nudgeMapPan = (dx: number, dy: number) => {
     setMapPan((current) => ({
-      x: Math.max(-180, Math.min(180, current.x + dx)),
-      y: Math.max(-180, Math.min(180, current.y + dy))
+      x: Math.max(-1200, Math.min(1200, current.x + dx)),
+      y: Math.max(-1200, Math.min(1200, current.y + dy))
     }));
   };
   const resetMapViewport = () => {
+    if (mapLevel === "municipality" && selectedMapDistrict) {
+      const fitted = fitMunicipalityViewport(portugalMunicipalityShapesByDistrict[selectedMapDistrict] ?? []);
+      setMapZoom(fitted.zoom);
+      setMapPan(fitted.pan);
+      return;
+    }
     setMapZoom(1);
     setMapPan({ x: 0, y: 0 });
   };
   const handleMapZoomChange = (nextZoom: number) => {
     setMapZoom(nextZoom);
-    if (nextZoom <= 1) setMapPan({ x: 0, y: 0 });
+    if (nextZoom <= 1 && mapLevel === "district") setMapPan({ x: 0, y: 0 });
   };
   const ageGroupMax = Math.max(1, ...ageGroupItems.map((item) => item.cases));
   const sexMax = Math.max(1, ...sexItems.map((item) => item.cases));
@@ -1467,8 +1668,17 @@ function HomeContent() {
     if (selectedDistrict !== "All" && selectedMapDistrict !== selectedDistrict) {
       setMapLevel("district");
       setSelectedMapDistrict(null);
+      setMapZoom(1);
+      setMapPan({ x: 0, y: 0 });
     }
   }, [selectedDistrict, selectedMapDistrict]);
+
+  useEffect(() => {
+    if (activeSection === "signals" && mapLevel === "district") {
+      setMapZoom(1);
+      setMapPan({ x: 0, y: 0 });
+    }
+  }, [activeSection, mapLevel]);
 
   useEffect(() => {
     if (selectedMunicipality !== "All" && !municipalityOptions.includes(selectedMunicipality)) {
@@ -1538,7 +1748,7 @@ function HomeContent() {
       </section>
       {denominatorNote ? <p className={styles.referenceIntro}>{denominatorNote}</p> : null}
 
-      <section id="input-parameters" className={styles.controlStrip} hidden={!["input", "signals"].includes(activeSection)}>
+      <section id="input-parameters" className={styles.controlStrip} hidden={activeSection !== "input"}>
         <div>
           <label htmlFor="file">{t.labels.dataFile}</label>
           <input id="file" type="file" accept=".csv" onChange={(event) => void handleFile(event.target.files?.[0] ?? null)} />
@@ -1645,9 +1855,33 @@ function HomeContent() {
 
       <section className={styles.panel} hidden={activeSection !== "input"}>
         <div className={styles.panelHeader}>
-          <h2>{t.strata.title}</h2>
-          <span>{t.messages.strata}</span>
+          <h2>{language === "pt" ? "Configuração da análise" : "Analysis configuration"}</h2>
+          <span>{language === "pt" ? "Configuração completa antes da interpretação dos sinais." : "Complete configuration before interpreting signals."}</span>
         </div>
+        <div className={styles.configSummaryGrid}>
+          <div>
+            <strong>{language === "pt" ? "Histórico disponível" : "Available history"}</strong>
+            <span>{weeksAvailable} {language === "pt" ? "semanas ISO" : "ISO weeks"}</span>
+          </div>
+          <div>
+            <strong>{language === "pt" ? "Métodos elegíveis" : "Eligible methods"}</strong>
+            <span>{possibleMethods.length ? methodOptions.filter((option) => possibleMethods.includes(option.value)).map((option) => option.label).join(", ") : t.methodHint.none}</span>
+          </div>
+          <div>
+            <strong>{language === "pt" ? "Método selecionado" : "Selected method"}</strong>
+            <span>{methodOptions.find((option) => option.value === method)?.label ?? method}</span>
+          </div>
+          <div>
+            <strong>{language === "pt" ? "Denominadores" : "Denominators"}</strong>
+            <span>{denominatorNote ?? (language === "pt" ? "Contagens apenas nos filtros sem denominador explícito." : "Counts only for filters without an explicit denominator.")}</span>
+          </div>
+        </div>
+        <div className={styles.methodNote}>
+          {language === "pt"
+            ? "Parâmetros segue a lógica do SignalDetectionTool original: dados, filtros, estratos, período e algoritmo são definidos aqui; Sinais fica para leitura e exploração dos resultados."
+            : "Input parameters follows the original SignalDetectionTool logic: data, filters, strata, period and algorithm are defined here; Signals is kept for reading and exploring results."}
+        </div>
+        <h3 className={styles.sectionSubheading}>{t.strata.title}</h3>
         <div className={styles.checkboxList}>
           {strataOptions.map((option) => (
             <label key={option.key}>
@@ -1668,6 +1902,51 @@ function HomeContent() {
       ) : (
         <section className={styles.notice}>{message}</section>
       ))}
+
+      <section className={styles.quickControlStrip} hidden={activeSection !== "signals"}>
+        <label>
+          {t.labels.pathogen}
+          <select value={selectedPathogen} onChange={(event) => setSelectedPathogen(event.target.value)}>
+            {pathogens.length > 1 ? <option value="All">{t.labels.all}</option> : null}
+            {pathogens.map((pathogen) => <option key={pathogen}>{pathogen}</option>)}
+          </select>
+        </label>
+        <label>
+          {t.labels.district}
+          <select
+            value={selectedDistrict}
+            onChange={(event) => {
+              setSelectedDistrict(event.target.value);
+              setSelectedMunicipality("All");
+            }}
+          >
+            <option value="All">{t.labels.all}</option>
+            {districts.map((district) => <option key={district}>{district}</option>)}
+          </select>
+        </label>
+        <label>
+          {t.labels.municipality}
+          <select value={selectedMunicipality} onChange={(event) => setSelectedMunicipality(event.target.value)}>
+            <option value="All">{t.labels.all}</option>
+            {municipalityOptions.map((municipality) => <option key={municipality}>{municipality}</option>)}
+          </select>
+        </label>
+        <label>
+          {t.labels.method}
+          <select value={method} onChange={(event) => setMethod(event.target.value)}>
+            {methodOptions.map((option) => (
+              <option key={option.value} value={option.value} disabled={!possibleMethods.includes(option.value)}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t.labels.weeks}
+          <input type="number" min="1" max="52" value={detectionWeeks} onChange={(event) => setDetectionWeeks(Number(event.target.value))} />
+        </label>
+        <button type="button" onClick={() => run()}>{t.actions.run}</button>
+      </section>
 
       <p className={styles.description} hidden={activeSection !== "signals"}>
         {t.messages.description} {language === "pt" ? `Janela: ${detectionWeeks} semanas.` : `Window: ${detectionWeeks} weeks.`}
@@ -1694,10 +1973,11 @@ function HomeContent() {
             }}
             source={t.mapDrilldown.source}
             onSelectDistrict={(district) => {
+              const fitted = fitMunicipalityViewport(portugalMunicipalityShapesByDistrict[district] ?? []);
               setSelectedMapDistrict(district);
               setMapLevel("municipality");
-              setMapZoom((current) => Math.max(current, 1.5));
-              setMapPan({ x: 0, y: 0 });
+              setMapZoom(fitted.zoom);
+              setMapPan(fitted.pan);
             }}
             controls={(
               <ChartControl
@@ -1710,13 +1990,6 @@ function HomeContent() {
                 onChange={handleMapZoomChange}
                 onReset={resetMapViewport}
                 resetLabel={t.chartControls.reset}
-              />
-            )}
-            panControls={(
-              <MapPanControl
-                labels={t.chartControls}
-                disabled={false}
-                onPan={nudgeMapPan}
               />
             )}
           />
@@ -1745,13 +2018,14 @@ function HomeContent() {
               setMapLevel("district");
               setSelectedMapDistrict(null);
               setSelectedMunicipality("All");
+              setMapZoom(1);
               setMapPan({ x: 0, y: 0 });
             }}
             controls={(
               <ChartControl
                 label={t.chartControls.mapZoom}
-                min={0.8}
-                max={1.8}
+                min={1}
+                max={5}
                 step={0.1}
                 value={mapZoom}
                 display={`${mapZoom.toFixed(1)}x`}
@@ -1840,10 +2114,29 @@ function HomeContent() {
       <section id="report" className={styles.lowerGrid} hidden={activeSection !== "report"}>
         <article className={styles.panel}>
           <div className={styles.panelHeader}>
-            <h2>{t.report.weekly}</h2>
+            <h2>{language === "pt" ? "Pré-visualização 16:9" : "16:9 preview"}</h2>
             <span>{summary.rows} rows · {summary.weeks} ISO weeks · Supabase {supabaseConfigured ? "configured" : "not configured"}</span>
           </div>
-          <WeeklyTable results={results} />
+          <ReportOnePager
+            title={reportTitle}
+            language={language}
+            disease={disease}
+            periodText={periodText}
+            method={method}
+            alphaUpper={alphaUpper}
+            summary={summary}
+            results={results}
+            signalCount={signalCount}
+            signalStrata={signalStrata}
+            unstratifiedAlarms={unstratifiedAlarms}
+            denominatorNote={denominatorNote}
+          />
+          {includeTables ? (
+            <div className={styles.reportAppendix}>
+              <h3>{language === "pt" ? "Anexo opcional: tabela semanal" : "Optional appendix: weekly table"}</h3>
+              <WeeklyTable results={results} />
+            </div>
+          ) : null}
         </article>
 
         <aside className={styles.panel}>
@@ -1874,7 +2167,7 @@ function HomeContent() {
               download("episignal-report-summary.json", JSON.stringify({ title: reportTitle, format: reportFormat, includeTables, summary, signalCount, signalStrata, parameters, results }, null, 2), "application/json");
               return;
             }
-            download("episignal-report.html", buildShinyLikeHtmlReport({ title: reportTitle, format: reportFormat, includeTables, summary, signalCount, parameters, results, signalStrata }), "text/html");
+            download("episignal-report.html", buildShinyLikeHtmlReport({ title: reportTitle, format: reportFormat, includeTables, language, summary, signalCount, parameters, results, signalStrata }), "text/html");
           }}>
             {t.actions.createReport}
           </button>

@@ -210,21 +210,38 @@
   margin: 22px 0 12px 4px;
 }
 
+.quickControlStrip {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 16px 0 14px;
+  padding: 12px;
+  border: 1px solid #d8e0eb;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #ffffff 0%, #f6f8fb 100%);
+}
+
 .controlStrip div {
   display: grid;
   gap: 5px;
 }
 
-.controlStrip label {
+.controlStrip label,
+.quickControlStrip label {
   max-width: 310px;
   color: #161b24;
   font-size: 11px;
   line-height: 1.25;
   font-weight: 800;
+  display: grid;
+  gap: 5px;
 }
 
 .controlStrip input,
-.controlStrip select {
+.controlStrip select,
+.quickControlStrip input,
+.quickControlStrip select {
   width: 280px;
   min-height: 31px;
   border: 1px solid #cfd5df;
@@ -239,6 +256,7 @@
 }
 
 .controlStrip button,
+.quickControlStrip button,
 .panel button {
   min-height: 31px;
   border: 1px solid #c5ccd8;
@@ -254,6 +272,41 @@
   color: #344054;
   font-size: 12px;
   line-height: 1.35;
+}
+
+.configSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0;
+}
+
+.configSummaryGrid div {
+  min-height: 92px;
+  border: 1px solid #d8e0eb;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 12px;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.configSummaryGrid strong {
+  color: #172033;
+  font-size: 12px;
+}
+
+.configSummaryGrid span {
+  color: #475467;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.sectionSubheading {
+  margin: 18px 0 8px;
+  color: #172033;
+  font-size: 14px;
 }
 
 .notice,
@@ -369,7 +422,7 @@
 
 .portugalMap {
   transform-box: fill-box;
-  transform-origin: center;
+  transform-origin: 0 0;
   transition: transform 0.16s ease;
 }
 
@@ -959,6 +1012,185 @@
   line-height: 1.45;
 }
 
+.reportSlidePreview {
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  min-height: 420px;
+  border: 1px solid #d7dce6;
+  border-radius: 10px;
+  background:
+    linear-gradient(135deg, rgba(48, 71, 148, 0.08), transparent 42%),
+    #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7);
+  padding: 24px;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 16px;
+  overflow: hidden;
+}
+
+.reportSlidePreview header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 12px;
+  border-bottom: 4px solid #304794;
+}
+
+.reportSlidePreview header span {
+  color: #df536b;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.reportSlidePreview h2 {
+  margin: 3px 0;
+  color: #172033;
+  font-size: clamp(20px, 2.2vw, 30px);
+}
+
+.reportSlidePreview p {
+  margin: 0;
+  color: #475467;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.reportKpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.reportKpis div {
+  border-radius: 8px;
+  background: #304794;
+  color: #ffffff;
+  padding: 12px;
+}
+
+.reportKpis span {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.88;
+}
+
+.reportKpis strong {
+  display: block;
+  margin-top: 5px;
+  font-size: clamp(22px, 2.6vw, 34px);
+  line-height: 1;
+}
+
+.reportSlideGrid {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr 1fr;
+  gap: 14px;
+  min-height: 0;
+}
+
+.reportSlideGrid section {
+  border: 1px solid #d8e0eb;
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.92);
+  padding: 14px;
+  overflow: hidden;
+}
+
+.reportSlideGrid h3 {
+  margin: 0 0 8px;
+  color: #304794;
+  font-size: 15px;
+}
+
+.reportSlideGrid p + p {
+  margin-top: 7px;
+}
+
+.reportMiniChart {
+  height: 142px;
+  display: grid;
+  grid-template-columns: repeat(16, minmax(4px, 1fr));
+  align-items: end;
+  gap: 4px;
+  margin: 8px 0;
+  padding: 8px 8px 0;
+  border-left: 1px solid #cbd5e1;
+  border-bottom: 1px solid #cbd5e1;
+}
+
+.reportMiniSlot {
+  position: relative;
+  height: 124px;
+  display: flex;
+  align-items: end;
+  justify-content: center;
+}
+
+.reportMiniSlot i {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: rgba(223, 83, 107, 0.45);
+}
+
+.reportMiniSlot b {
+  width: 100%;
+  max-width: 16px;
+  border-radius: 4px 4px 0 0;
+  background: #304794;
+}
+
+.reportAlarmBar {
+  background: #df536b !important;
+  box-shadow: 0 0 0 2px rgba(223, 83, 107, 0.22);
+}
+
+.reportStrataMini {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.reportStrataMini span {
+  border: 1px solid #d8e0eb;
+  border-radius: 7px;
+  background: #fff;
+  padding: 7px;
+  color: #475467;
+  font-size: 11px;
+}
+
+.reportStrataMini strong {
+  display: block;
+  color: #304794;
+  font-size: 19px;
+}
+
+.reportSlidePreview footer {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: #475467;
+  font-size: 12px;
+}
+
+.reportAppendix {
+  margin-top: 18px;
+}
+
+.reportAppendix h3 {
+  margin: 0 0 10px;
+  color: #172033;
+  font-size: 14px;
+}
+
 .formGrid,
 .checkGrid,
 .checkboxList {
@@ -1375,7 +1607,10 @@
   .checkGrid,
   .checkboxList,
   .legalGrid,
-  .methodCards {
+  .methodCards,
+  .configSummaryGrid,
+  .reportKpis,
+  .reportSlideGrid {
     grid-template-columns: 1fr;
   }
 
@@ -1463,6 +1698,7 @@
   }
 
   .controlStrip,
+  .quickControlStrip,
   .panelHeader {
     align-items: stretch;
     flex-direction: column;
@@ -1470,8 +1706,16 @@
 
   .controlStrip input,
   .controlStrip select,
-  .controlStrip button {
+  .controlStrip button,
+  .quickControlStrip input,
+  .quickControlStrip select,
+  .quickControlStrip button {
     width: 100%;
+  }
+
+  .reportSlidePreview {
+    aspect-ratio: auto;
+    min-height: 0;
   }
 
   .metrics {

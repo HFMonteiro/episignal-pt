@@ -72,6 +72,13 @@ def geometry_to_path(geometry, point) -> str:
     return " ".join(path for path in paths if path)
 
 
+def geometry_bbox(geometry, point) -> list[float]:
+    min_x, min_y, max_x, max_y = geometry.bounds
+    view_min_x, view_min_y = point(min_x, max_y)
+    view_max_x, view_max_y = point(max_x, min_y)
+    return [view_min_x, view_min_y, view_max_x, view_max_y]
+
+
 def main() -> None:
     args = parse_args()
     source = Path(args.source)
@@ -97,6 +104,7 @@ def main() -> None:
                 "district": ascii_name(row.distrito_ilha),
                 "districtDisplay": row.distrito_ilha,
                 "district_id": municipality_id[:2],
+                "bbox": geometry_bbox(row.geometry, point),
                 "path": geometry_to_path(row.geometry, point),
             }
         )
@@ -108,6 +116,7 @@ def main() -> None:
         "  district: string;\\n"
         "  districtDisplay: string;\\n"
         "  district_id: string;\\n"
+        "  bbox: [number, number, number, number];\\n"
         "  path: string;\\n"
         "};\\n\\n"
         "export const portugalMunicipalityMapMeta = {\\n"
@@ -131,6 +140,7 @@ def main() -> None:
     )
 
     output.parent.mkdir(parents=True, exist_ok=True)
+    content = content.replace("\\n", "\n")
     output.write_text(content, encoding="utf-8")
     print(json.dumps({"rows": len(rows), "output": str(output), "bytes": output.stat().st_size}, indent=2))
 
