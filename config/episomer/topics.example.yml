@@ -1,0 +1,41 @@
+# Example topic plan for an Episomer-compatible worker.
+# Review locally before operational use; these are illustrative terms only.
+topics:
+  - id: measles
+    label: Measles / Sarampo
+    keywords:
+      - measles
+      - sarampo
+      - outbreak
+      - vaccine
+      - rash fever
+    geography:
+      countries:
+        - Portugal
+      locations:
+        - Lisboa
+        - Porto
+        - Faro
+    review_priority: high
+  - id: pertussis
+    label: Pertussis / Tosse convulsa
+    keywords:
+      - pertussis
+      - whooping cough
+      - tosse convulsa
+      - outbreak
+    geography:
+      countries:
+        - Portugal
+    review_priority: high
+  - id: respiratory
+    label: Respiratory syndromes
+    keywords:
+      - respiratory outbreak
+      - pneumonia cluster
+      - influenza outbreak
+      - covid surge
+    geography:
+      countries:
+        - Portugal
+    review_priority: medium

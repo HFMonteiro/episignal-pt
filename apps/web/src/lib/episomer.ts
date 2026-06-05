@@ -36,6 +36,30 @@ export type EpisomerLiveResponse = {
   articles: EpisomerLiveArticle[];
 };
 
+export type EpisomerSetupCheck = {
+  key: string;
+  label: string;
+  ready: boolean;
+  detail: string;
+};
+
+export type EpisomerGovernanceCheck = {
+  key: string;
+  label: string;
+  ready: boolean;
+};
+
+export type EpisomerStatusResponse = {
+  worker_status: "ready" | "partial" | "offline";
+  source_mode: "episomer_bluesky" | "open_news_only" | "demo";
+  r_worker_url: string | null;
+  checks: EpisomerSetupCheck[];
+  governance: EpisomerGovernanceCheck[];
+  required_env: string[];
+  secrets_redacted: true;
+  updated_at: string;
+};
+
 export type EpisomerField = {
   field: keyof EpisomerAggregate;
   type: string;

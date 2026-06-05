@@ -3,9 +3,9 @@
 import type { Route } from "next";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 
-import { episomerAggregatesToJson, episomerDemoAggregates, episomerSchema, summarizeEpisomerAggregates, type EpisomerAggregate, type EpisomerLiveResponse } from "@/lib/episomer";
+import { episomerAggregatesToJson, episomerDemoAggregates, episomerSchema, summarizeEpisomerAggregates, type EpisomerAggregate, type EpisomerLiveResponse, type EpisomerStatusResponse } from "@/lib/episomer";
 import { AppHeader, MiniTabs } from "../page";
 import styles from "../page.module.css";
 
@@ -49,8 +49,12 @@ const copy = {
     liveArticles: "Artigos recolhidos",
     liveFallback: "Ainda sem recolha live nesta sessão.",
     statusTitle: "Estado da integração",
-    status: "Worker Episomer não ligado",
+    status: "Estado técnico",
     statusDetail: "A visualização abaixo começa com agregados sintéticos. O botão live executa uma recolha curta de notícias abertas; o modo Episomer social-media real requer worker R, APIs sociais e governação explícita.",
+    setupChecks: "Instalação e credenciais",
+    governanceChecks: "Governação explícita",
+    statusLoading: "A verificar configuração...",
+    statusError: "Não foi possível ler o estado da configuração.",
     sourceMode: "Origem dos sinais",
     sourceModeValue: "Amostra demonstrativa",
     sourceModeLive: "Live: Bluesky/social APIs via worker R",
@@ -102,8 +106,12 @@ const copy = {
     liveArticles: "Collected articles",
     liveFallback: "No live collection in this session yet.",
     statusTitle: "Integration status",
-    status: "Episomer worker not connected",
+    status: "Technical status",
     statusDetail: "The view below starts with synthetic aggregates. The live button runs a short open-news collection; real Episomer social-media mode requires an R worker, social APIs and explicit governance.",
+    setupChecks: "Installation and credentials",
+    governanceChecks: "Explicit governance",
+    statusLoading: "Checking configuration...",
+    statusError: "Could not read configuration status.",
     sourceMode: "Signal source",
     sourceModeValue: "Demonstration sample",
     sourceModeLive: "Live: Bluesky/social APIs via R worker",
@@ -165,6 +173,8 @@ function EpisomerContent() {
   const [liveProgress, setLiveProgress] = useState(0);
   const [liveError, setLiveError] = useState<string | null>(null);
   const [isCollecting, setIsCollecting] = useState(false);
+  const [status, setStatus] = useState<EpisomerStatusResponse | null>(null);
+  const [statusError, setStatusError] = useState(false);
   const topics = useMemo(() => [...new Set(episomerDemoAggregates.map((row) => row.topic))], []);
   const locations = useMemo(() => [...new Set(episomerDemoAggregates.map((row) => row.location))], []);
   const activeAggregates = liveResult?.aggregates.length ? liveResult.aggregates : episomerDemoAggregates;
@@ -176,6 +186,24 @@ function EpisomerContent() {
   );
   const summary = useMemo(() => summarizeEpisomerAggregates(rows), [rows]);
   const chartMax = Math.max(1, ...rows.map((row) => Math.max(row.posts_observed, row.threshold)));
+
+  useEffect(() => {
+    let ignore = false;
+    fetch("/api/episomer/status", { cache: "no-store" })
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json() as Promise<EpisomerStatusResponse>;
+      })
+      .then((payload) => {
+        if (!ignore) setStatus(payload);
+      })
+      .catch(() => {
+        if (!ignore) setStatusError(true);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   async function collectLiveSignals() {
     setIsCollecting(true);
@@ -219,155 +247,185 @@ function EpisomerContent() {
           </div>
         </article>
 
-        <section className={styles.somerPanel} aria-labelledby="episomer-model">
-          <div className={styles.panelHeader}>
-            <div>
-              <h3 id="episomer-model">{t.statusTitle}</h3>
-              <p className={styles.somerStatusText}>{t.statusDetail}</p>
-            </div>
-            <button type="button" onClick={() => download(liveResult ? "episignal-live-open-news.json" : "episomer-aggregates-demo.json", liveRowsToJson(liveResult, rows), "application/json")}>
-              {t.export}
-            </button>
-          </div>
-          <div className={styles.somerStatusGrid}>
-            <span>
-              <strong>{t.status}</strong>
-              <small>worker_status=offline</small>
-            </span>
-            <span>
-              <strong>{t.sourceModeValue}</strong>
-              <small>{t.sourceMode}</small>
-            </span>
-            <span>
-              <strong>{t.sourceModeLive}</strong>
-              <small>planned_mode</small>
-            </span>
-          </div>
-          <div className={styles.episomerLiveControls}>
-            <label>
-              {t.liveTopic}
-              <input
-                value={liveTopic}
-                placeholder={t.liveTopicPlaceholder}
-                onChange={(event) => setLiveTopic(event.target.value)}
-              />
-            </label>
-            <button type="button" disabled={isCollecting} onClick={collectLiveSignals}>
-              {isCollecting ? t.collecting : t.collectLive}
-            </button>
-          </div>
-          <div className={styles.episomerProgress} aria-label={t.collecting}>
-            <span style={{ width: `${liveProgress}%` }} />
-          </div>
-          {liveError ? <p className={styles.alert}>{liveError}</p> : null}
-          {liveResult ? (
-            <p className={styles.somerStatusText}>
-              {t.liveResults}: {liveResult.articles.length} artigos, {liveResult.aggregates.length} agregados, {liveResult.seconds_elapsed}s. {liveResult.warning}
-            </p>
-          ) : (
-            <p className={styles.somerStatusText}>{t.liveFallback}</p>
-          )}
-        </section>
+        <div className={styles.episomerWorkbench}>
+          <div className={styles.episomerMainColumn}>
+            <section className={styles.somerPanel} aria-labelledby="episomer-model">
+              <div className={styles.panelHeader}>
+                <div>
+                  <h3 id="episomer-model">{t.statusTitle}</h3>
+                  <p className={styles.somerStatusText}>{t.statusDetail}</p>
+                </div>
+                <button type="button" onClick={() => download(liveResult ? "episignal-live-open-news.json" : "episomer-aggregates-demo.json", liveRowsToJson(liveResult, rows), "application/json")}>
+                  {t.export}
+                </button>
+              </div>
+              <div className={styles.somerStatusGrid}>
+                <span>
+                  <strong>{status?.worker_status ?? t.statusLoading}</strong>
+                  <small>{t.status}</small>
+                </span>
+                <span>
+                  <strong>{status?.source_mode ?? t.sourceModeValue}</strong>
+                  <small>{t.sourceMode}</small>
+                </span>
+                <span>
+                  <strong>{status?.r_worker_url ? "server-side endpoint configured" : t.sourceModeLive}</strong>
+                  <small>{status?.r_worker_url ? "EPISOMER_R_WORKER_URL" : "planned_mode"}</small>
+                </span>
+              </div>
+              {statusError ? <p className={styles.alert}>{t.statusError}</p> : null}
+              {status ? (
+                <div className={styles.episomerSetupGrid}>
+                  <section>
+                    <h4>{t.setupChecks}</h4>
+                    {status.checks.map((check) => (
+                      <span className={check.ready ? styles.episomerReady : styles.episomerMissing} key={check.key}>
+                        <strong>{check.ready ? "OK" : "TODO"}</strong>
+                        <b>{check.label}</b>
+                        <small>{check.detail}</small>
+                      </span>
+                    ))}
+                  </section>
+                  <section>
+                    <h4>{t.governanceChecks}</h4>
+                    {status.governance.map((check) => (
+                      <span className={check.ready ? styles.episomerReady : styles.episomerMissing} key={check.key}>
+                        <strong>{check.ready ? "OK" : "TODO"}</strong>
+                        <b>{check.label}</b>
+                      </span>
+                    ))}
+                  </section>
+                </div>
+              ) : null}
+              <div className={styles.episomerLiveControls}>
+                <label>
+                  {t.liveTopic}
+                  <input
+                    value={liveTopic}
+                    placeholder={t.liveTopicPlaceholder}
+                    onChange={(event) => setLiveTopic(event.target.value)}
+                  />
+                </label>
+                <button type="button" disabled={isCollecting} onClick={collectLiveSignals}>
+                  {isCollecting ? t.collecting : t.collectLive}
+                </button>
+              </div>
+              <div className={styles.episomerProgress} aria-label={t.collecting}>
+                <span style={{ width: `${liveProgress}%` }} />
+              </div>
+              {liveError ? <p className={styles.alert}>{liveError}</p> : null}
+              {liveResult ? (
+                <p className={styles.somerStatusText}>
+                  {t.liveResults}: {liveResult.articles.length} artigos, {liveResult.aggregates.length} agregados, {liveResult.seconds_elapsed}s. {liveResult.warning}
+                </p>
+              ) : (
+                <p className={styles.somerStatusText}>{t.liveFallback}</p>
+              )}
+            </section>
 
-        <section className={styles.somerPanel} aria-labelledby="episomer-architecture">
-          <h3 id="episomer-architecture">{t.modelTitle}</h3>
-          <ol className={styles.somerFlow}>
-            {t.model.map((step) => (
-              <li key={step}>{step}</li>
-            ))}
-          </ol>
-        </section>
+            <section className={styles.somerPanel} aria-labelledby="episomer-architecture">
+              <h3 id="episomer-architecture">{t.modelTitle}</h3>
+              <ol className={styles.somerFlow}>
+                {t.model.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+            </section>
 
-        <section className={styles.somerPanel} aria-label="Episomer filters">
-          <div className={styles.episomerFilters}>
-            <label>
-              {t.topic}
-              <select value={topic} onChange={(event) => setTopic(event.target.value)}>
-                <option>{t.all}</option>
-                {(liveResult ? activeTopicOptions : topics).map((item) => <option key={item}>{item}</option>)}
-              </select>
-            </label>
-            <label>
-              {t.location}
-              <select value={location} onChange={(event) => setLocation(event.target.value)}>
-                <option>{t.all}</option>
-                {(liveResult ? activeLocationOptions : locations).map((item) => <option key={item}>{item}</option>)}
-              </select>
-            </label>
-          </div>
-          <div className={styles.episomerMetricGrid}>
-            <span><strong>{summary.rows}</strong>{t.metrics.rows}</span>
-            <span><strong>{summary.topics}</strong>{t.metrics.topics}</span>
-            <span><strong>{summary.locations}</strong>{t.metrics.locations}</span>
-            <span><strong>{summary.alerts}</strong>{t.metrics.alerts}</span>
-            <span><strong>{summary.escalated}</strong>{t.metrics.escalated}</span>
-            <span><strong>{summary.maxScore.toFixed(2)}</strong>{t.metrics.maxScore}</span>
-          </div>
-        </section>
+            <section className={styles.somerPanel} aria-label="Episomer filters">
+              <div className={styles.episomerFilters}>
+                <label>
+                  {t.topic}
+                  <select value={topic} onChange={(event) => setTopic(event.target.value)}>
+                    <option>{t.all}</option>
+                    {(liveResult ? activeTopicOptions : topics).map((item) => <option key={item}>{item}</option>)}
+                  </select>
+                </label>
+                <label>
+                  {t.location}
+                  <select value={location} onChange={(event) => setLocation(event.target.value)}>
+                    <option>{t.all}</option>
+                    {(liveResult ? activeLocationOptions : locations).map((item) => <option key={item}>{item}</option>)}
+                  </select>
+                </label>
+              </div>
+              <div className={styles.episomerMetricGrid}>
+                <span><strong>{summary.rows}</strong>{t.metrics.rows}</span>
+                <span><strong>{summary.topics}</strong>{t.metrics.topics}</span>
+                <span><strong>{summary.locations}</strong>{t.metrics.locations}</span>
+                <span><strong>{summary.alerts}</strong>{t.metrics.alerts}</span>
+                <span><strong>{summary.escalated}</strong>{t.metrics.escalated}</span>
+                <span><strong>{summary.maxScore.toFixed(2)}</strong>{t.metrics.maxScore}</span>
+              </div>
+            </section>
 
-        <section className={styles.somerGrid}>
-          <article className={styles.somerCard}>
-            <h3>{t.chartTitle}</h3>
-            {rows.length ? (
-              <div className={styles.episomerBars}>
-                {rows.map((row) => (
-                  <div className={styles.episomerBarRow} key={`${row.topic}-${row.location}-${row.date}`}>
-                    <span>{row.topic} · {row.location}</span>
-                    <div className={styles.episomerBarTrack}>
-                      <b style={{ width: `${Math.max(3, (row.posts_observed / chartMax) * 100)}%` }} />
-                      <i style={{ left: `${Math.min(100, (row.threshold / chartMax) * 100)}%` }} />
-                    </div>
-                    <em>{row.posts_observed}/{row.threshold}</em>
+            <section className={styles.somerGrid}>
+              <article className={styles.somerCard}>
+                <h3>{t.chartTitle}</h3>
+                {rows.length ? (
+                  <div className={styles.episomerBars}>
+                    {rows.map((row) => (
+                      <div className={styles.episomerBarRow} key={`${row.topic}-${row.location}-${row.date}`}>
+                        <span>{row.topic} · {row.location}</span>
+                        <div className={styles.episomerBarTrack}>
+                          <b style={{ width: `${Math.max(3, (row.posts_observed / chartMax) * 100)}%` }} />
+                          <i style={{ left: `${Math.min(100, (row.threshold / chartMax) * 100)}%` }} />
+                        </div>
+                        <em>{row.posts_observed}/{row.threshold}</em>
+                      </div>
+                    ))}
                   </div>
+                ) : <p>{t.empty}</p>}
+              </article>
+
+              <article className={styles.somerCard}>
+                <h3>{t.tableTitle}</h3>
+                <div className={styles.episomerTableWrap}>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>topic</th>
+                        <th>location</th>
+                        <th>date</th>
+                        <th>observed</th>
+                        <th>alert</th>
+                        <th>review</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((row) => (
+                        <tr key={`${row.topic}-${row.location}-${row.date}`}>
+                          <td>{row.topic}</td>
+                          <td>{row.location}</td>
+                          <td>{row.date}</td>
+                          <td>{row.posts_observed}</td>
+                          <td>{row.alert ? "yes" : "no"}</td>
+                          <td>{row.review_status}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+            </section>
+          </div>
+
+          <aside className={styles.episomerArticleAside} aria-labelledby="episomer-live-articles">
+            <h3 id="episomer-live-articles">{t.liveArticles}</h3>
+            {liveResult ? (
+              <div className={styles.episomerArticleList}>
+                {liveResult.articles.map((article) => (
+                  <article key={article.url}>
+                    <a href={article.url} target="_blank" rel="noreferrer">{article.title}</a>
+                    <span>{article.source_domain || article.source_country} · {article.language || "n/a"} · {article.seen_at || liveResult.generated_at}</span>
+                  </article>
                 ))}
               </div>
-            ) : <p>{t.empty}</p>}
-          </article>
-
-          <article className={styles.somerCard}>
-            <h3>{t.tableTitle}</h3>
-            <div className={styles.episomerTableWrap}>
-              <table>
-                <thead>
-                  <tr>
-                    <th>topic</th>
-                    <th>location</th>
-                    <th>date</th>
-                    <th>observed</th>
-                    <th>alert</th>
-                    <th>review</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => (
-                    <tr key={`${row.topic}-${row.location}-${row.date}`}>
-                      <td>{row.topic}</td>
-                      <td>{row.location}</td>
-                      <td>{row.date}</td>
-                      <td>{row.posts_observed}</td>
-                      <td>{row.alert ? "yes" : "no"}</td>
-                      <td>{row.review_status}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </article>
-        </section>
-
-        {liveResult ? (
-          <section className={styles.somerPanel} aria-labelledby="episomer-live-articles">
-            <h3 id="episomer-live-articles">{t.liveArticles}</h3>
-            <div className={styles.episomerArticleList}>
-              {liveResult.articles.map((article) => (
-                <article key={article.url}>
-                  <a href={article.url} target="_blank" rel="noreferrer">{article.title}</a>
-                  <span>{article.source_domain || article.source_country} · {article.language || "n/a"} · {article.seen_at || liveResult.generated_at}</span>
-                </article>
-              ))}
-            </div>
-          </section>
-        ) : null}
+            ) : (
+              <p className={styles.somerStatusText}>{t.liveFallback}</p>
+            )}
+          </aside>
+        </div>
 
         <section className={styles.somerPanel} aria-labelledby="episomer-schema">
           <h3 id="episomer-schema">{t.schemaTitle}</h3>

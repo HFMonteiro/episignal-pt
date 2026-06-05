@@ -60,6 +60,47 @@ The frontend expects aggregated rows, not raw posts:
 
 A real worker should call Episomer through R and return only aggregated records matching this contract. It should not expose API tokens, raw social posts, direct identifiers or the local Episomer database to the browser.
 
+Authoritative installation sources state that Episomer is an R package, available from CRAN/R-universe/GitHub, currently collecting social media posts from Bluesky via API, with Shiny pages for dashboard, alerts, geotag evaluation, data protection, configuration and troubleshooting.
+
+Minimum R installation:
+
+```r
+install.packages(
+  "episomer",
+  repos = c("https://eu-ecdc.r-universe.dev", "https://cloud.r-project.org")
+)
+```
+
+Credential handling:
+
+- create a Bluesky app password for the service account used for monitoring;
+- store `BLUESKY_IDENTIFIER` and `BLUESKY_APP_PASSWORD` only in `.env.local`, the worker runtime, or Vercel/host secret storage;
+- do not expose social credentials through `NEXT_PUBLIC_*`;
+- prefer Episomer/keyring-native credential storage inside the R worker when running the full package;
+- rotate the app password if a developer machine or deployment secret is compromised.
+
+`apps/web` status endpoint:
+
+`GET /api/episomer/status`
+
+This endpoint reads server-side environment variables and returns redacted readiness checks. It never returns secrets.
+
+Required app/worker environment:
+
+```text
+EPISOMER_R_WORKER_URL=http://127.0.0.1:8091
+EPISOMER_PACKAGE_READY=true
+EPISOMER_TOPIC_CONFIG_PATH=../../config/episomer/topics.yml
+BLUESKY_IDENTIFIER=
+BLUESKY_APP_PASSWORD=
+EPISOMER_GOV_DATA_PROTECTION_BASIS=true
+EPISOMER_GOV_RETENTION_POLICY=true
+EPISOMER_GOV_HUMAN_REVIEW=true
+EPISOMER_GOV_AUDIT_LOG=true
+```
+
+Topic/keyword configuration starts from `config/episomer/topics.example.yml`; copy it to a local non-public configuration file before operational use.
+
 Minimum worker endpoints:
 
 - `GET /episomer/status`: R/Episomer availability, configured sources and last run metadata.
