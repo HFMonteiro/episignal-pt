@@ -32,6 +32,28 @@ function uniqueArticles(articles: EpisomerLiveArticle[]): EpisomerLiveArticle[] 
   });
 }
 
+function decodeXml(value: string): string {
+  return value
+    .replaceAll("<![CDATA[", "")
+    .replaceAll("]]>", "")
+    .replaceAll("&amp;", "&")
+    .replaceAll("&quot;", "\"")
+    .replaceAll("&#39;", "'")
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .trim();
+}
+
+function textBetween(value: string, tag: string): string {
+  const match = value.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i"));
+  return match ? decodeXml(match[1]) : "";
+}
+
+function inferSourceFromTitle(title: string): string {
+  const parts = title.split(" - ");
+  return parts.length > 1 ? parts[parts.length - 1].trim() : "Open news";
+}
+
 function toAggregateRows(topic: string, articles: EpisomerLiveArticle[]): EpisomerAggregate[] {
   const byLocation = new Map<string, number>();
   for (const article of articles) {
@@ -88,30 +110,64 @@ async function fetchGdeltArticles(topic: string, pass: number): Promise<Episomer
   })).filter((article) => article.url);
 }
 
+async function fetchGoogleNewsArticles(topic: string): Promise<EpisomerLiveArticle[]> {
+  const params = new URLSearchParams({
+    q: topic,
+    hl: "pt-PT",
+    gl: "PT",
+    ceid: "PT:pt-PT"
+  });
+  const response = await fetch(`https://news.google.com/rss/search?${params.toString()}`, {
+    cache: "no-store",
+    headers: { "User-Agent": "episignal-pt-live-preview/0.1" }
+  });
+  if (!response.ok) throw new Error(`Google News RSS returned ${response.status}`);
+  const xml = await response.text();
+  const itemMatches = xml.match(/<item>[\s\S]*?<\/item>/gi) ?? [];
+  return itemMatches.slice(0, 60).map((item) => {
+    const title = textBetween(item, "title");
+    return {
+      title,
+      url: textBetween(item, "link"),
+      source_domain: inferSourceFromTitle(title),
+      source_country: "Open news",
+      language: "mixed",
+      seen_at: textBetween(item, "pubDate")
+    };
+  }).filter((article) => article.url && article.title);
+}
+
 export async function GET(request: Request) {
   const started = Date.now();
   const { searchParams } = new URL(request.url);
   const topic = normaliseTopic(searchParams.get("topic"));
   const requestedSeconds = Math.min(10, Math.max(3, Number(searchParams.get("seconds") ?? 10)));
   const articles: EpisomerLiveArticle[] = [];
+  let source: EpisomerLiveResponse["source"] = "GDELT";
   let warning = "Open-news live scan. This is not ECDC Episomer social-media collection and should be reviewed as event-based intelligence.";
 
   try {
-    const deadline = started + requestedSeconds * 1000;
-    let pass = 0;
-    while (Date.now() < deadline && pass < 4) {
-      articles.push(...await fetchGdeltArticles(topic, pass));
-      pass += 1;
-      if (Date.now() + 1800 < deadline) await wait(1800);
+    if (requestedSeconds > 3) await wait(Math.min(7000, (requestedSeconds - 3) * 1000));
+    articles.push(...await fetchGdeltArticles(topic, 0));
+    if (articles.length === 0) {
+      source = "GoogleNewsRSS";
+      warning = `${warning} GDELT returned no articles for this query, so open-news RSS was used.`;
+      articles.push(...await fetchGoogleNewsArticles(topic));
     }
   } catch (error) {
-    warning = `${warning} Data source returned an error: ${error instanceof Error ? error.message : "unknown error"}.`;
+    source = "GoogleNewsRSS";
+    warning = `${warning} GDELT returned an error: ${error instanceof Error ? error.message : "unknown error"}. Falling back to open-news RSS.`;
+    try {
+      articles.push(...await fetchGoogleNewsArticles(topic));
+    } catch (fallbackError) {
+      warning = `${warning} RSS fallback also failed: ${fallbackError instanceof Error ? fallbackError.message : "unknown error"}.`;
+    }
   }
 
   const unique = uniqueArticles(articles).slice(0, 80);
   const response: EpisomerLiveResponse = {
     mode: "open_news_live",
-    source: "GDELT",
+    source,
     topic,
     query: topic,
     seconds_requested: requestedSeconds,

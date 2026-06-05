@@ -25,7 +25,7 @@ export type EpisomerLiveArticle = {
 
 export type EpisomerLiveResponse = {
   mode: "open_news_live";
-  source: "GDELT";
+  source: "GDELT" | "GoogleNewsRSS" | "MixedOpenNews";
   topic: string;
   query: string;
   seconds_requested: number;
