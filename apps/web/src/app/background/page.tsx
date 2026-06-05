@@ -34,6 +34,7 @@ const methodLinks = {
 const copy: Record<Language, {
   help: string;
   signals: string;
+  episomer: string;
   title: string;
   intro: string;
   back: string;
@@ -42,6 +43,7 @@ const copy: Record<Language, {
   pt: {
     help: "Ajuda",
     signals: "Sinais",
+    episomer: "Episomer",
     title: "Contexto, fontes e nota legal",
     intro:
       "Esta proposta é um painel português de vigilância epidemiológica inspirado no United4Surveillance Signal Detection Tool. Serve para avaliação técnica, desenho de interface, planeamento de migração e validação progressiva dos métodos.",
@@ -174,6 +176,7 @@ const copy: Record<Language, {
   en: {
     help: "Help",
     signals: "Signals",
+    episomer: "Episomer",
     title: "Background, Sources and Legal Notice",
     intro:
       "This proposal is a Portuguese public-health surveillance dashboard inspired by the United4Surveillance Signal Detection Tool. It is intended for technical evaluation, interface design, migration planning and progressive method validation.",
@@ -354,6 +357,10 @@ function BackgroundContent() {
         <Link href={`/?lang=${language}&section=signals`}>
           <span aria-hidden="true">╬</span>
           {t.signals}
+        </Link>
+        <Link href={`/episomer?lang=${language}`}>
+          <span aria-hidden="true">◎</span>
+          {t.episomer}
         </Link>
       </nav>
 

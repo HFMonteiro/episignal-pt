@@ -31,13 +31,21 @@ type SectionKey = "data" | "input" | "signals" | "report";
 type Language = "pt" | "en";
 
 type NavTab =
-  | { label: string; icon: string; href: "/background" }
+  | { label: string; icon: string; href: "/background" | "/episomer" }
   | { label: string; icon: string; section: SectionKey };
 
 type StrataKey = "district" | "age_group" | "sex";
 type MapLevel = "district" | "municipality";
 type MapPan = { x: number; y: number };
 type ReportLanguage = "pt" | "en";
+type SensitivityProfile = {
+  method: string;
+  label: string;
+  sensitivity: number | null;
+  specificity: number | null;
+  alarms: number;
+  trueSignalWeeks: number;
+};
 
 const PORTUGAL_MAP_VIEWBOX = { width: 379.499, height: 547.489 };
 const MUNICIPALITY_MIN_ZOOM = 2.5;
@@ -82,12 +90,13 @@ const copy = {
       data: "Dados",
       input: "Parâmetros",
       signals: "Sinais",
-      report: "Relatório"
+      report: "Relatório",
+      somer: "Episomer"
     },
     metrics: {
       method: "Método, doença e período",
       cases: "Casos e alarmes não estratificados",
-      strata: "Estratos com sinal"
+      strata: "Estratos com alarme"
     },
     labels: {
       algorithm: "Algoritmo",
@@ -134,8 +143,8 @@ const copy = {
       sex: "Sexo"
     },
     signalCountMode: {
-      show: "Mostrar marcadores de sinal",
-      hide: "Ocultar marcadores de sinal"
+      show: "Mostrar marcadores de alarme",
+      hide: "Ocultar marcadores de alarme"
     },
     methodHint: {
       prefix: "Semanas históricas para ajuste",
@@ -153,10 +162,17 @@ const copy = {
       panDown: "Mover para baixo",
       panLeft: "Mover para a esquerda",
       panRight: "Mover para a direita",
-      panUpShort: "Cima",
-      panDownShort: "Baixo",
-      panLeftShort: "Esq.",
-      panRightShort: "Dir."
+      panUpShort: "↑",
+      panDownShort: "↓",
+      panLeftShort: "←",
+      panRightShort: "→"
+    },
+    sensitivity: {
+      title: "Comparação no sample",
+      bestSensitive: "mais sensível",
+      bestSpecific: "mais específico",
+      unavailable: "Sem referência de surto nos dados filtrados; não é possível estimar sensibilidade/especificidade.",
+      note: "Estimativa apenas para a amostra sintética, usando outbreak_status como referência."
     },
     mapDrilldown: {
       districtTitle: "Casos por distrito",
@@ -166,8 +182,8 @@ const copy = {
       low: "baixo",
       medium: "médio",
       high: "alto",
-      flagged: "com flag",
-      signalFlag: "Marcador de sinal",
+      flagged: "com alarme",
+      signalFlag: "Marcador de alarme",
       source: "Geometria distrital adaptada do SVG público Wikimedia Commons Portuguese Districts Map With Names.",
       hint: "Clique num distrito para ver a camada concelhia.",
       back: "Voltar a distritos",
@@ -229,12 +245,13 @@ const copy = {
       data: "Data",
       input: "Input parameters",
       signals: "Signals",
-      report: "Report"
+      report: "Report",
+      somer: "Episomer"
     },
     metrics: {
       method: "Method, disease and period",
       cases: "Unstratified cases and alarms",
-      strata: "Flagged strata"
+      strata: "Alarmed strata"
     },
     labels: {
       algorithm: "Algorithm",
@@ -281,8 +298,8 @@ const copy = {
       sex: "Sex"
     },
     signalCountMode: {
-      show: "Show signal markers",
-      hide: "Hide signal markers"
+      show: "Show alarm markers",
+      hide: "Hide alarm markers"
     },
     methodHint: {
       prefix: "Historic fitting weeks",
@@ -300,10 +317,17 @@ const copy = {
       panDown: "Move down",
       panLeft: "Move left",
       panRight: "Move right",
-      panUpShort: "Up",
-      panDownShort: "Down",
-      panLeftShort: "Left",
-      panRightShort: "Right"
+      panUpShort: "↑",
+      panDownShort: "↓",
+      panLeftShort: "←",
+      panRightShort: "→"
+    },
+    sensitivity: {
+      title: "Sample comparison",
+      bestSensitive: "most sensitive",
+      bestSpecific: "most specific",
+      unavailable: "No outbreak reference in the filtered data; sensitivity/specificity cannot be estimated.",
+      note: "Estimate for the synthetic sample only, using outbreak_status as reference."
     },
     mapDrilldown: {
       districtTitle: "Cases by district",
@@ -313,8 +337,8 @@ const copy = {
       low: "low",
       medium: "medium",
       high: "high",
-      flagged: "flagged",
-      signalFlag: "Signal marker",
+      flagged: "with alarm",
+      signalFlag: "Alarm marker",
       source: "District geometry adapted from the public-domain Wikimedia Commons SVG Portuguese Districts Map With Names.",
       hint: "Click a district to view the municipality layer.",
       back: "Back to districts",
@@ -503,6 +527,72 @@ function applySignalPostProcessing(results: WeeklyResult[], minCasesSignal: numb
   }));
 }
 
+function buildTruthByIsoWeek(rows: CaseRecord[]): Map<string, boolean> {
+  const truth = new Map<string, boolean>();
+  for (const row of rows) {
+    const value = isoYearWeek(row.date_report);
+    if (!value) continue;
+    const key = `${value.year}-${value.week}`;
+    truth.set(key, (truth.get(key) ?? false) || isSignalCase(row));
+  }
+  return truth;
+}
+
+function evaluateMethodProfiles(
+  rows: CaseRecord[],
+  detectionWeeks: number,
+  alphaUpper: number,
+  denominatorPopulation: number | null,
+  minCasesSignal: number
+): SensitivityProfile[] {
+  const truthByWeek = buildTruthByIsoWeek(rows);
+  const profiles = [
+    { method: "ears", alphaMultiplier: 1.35 },
+    { method: "cusum", alphaMultiplier: 1 },
+    { method: "farrington", alphaMultiplier: 0.75 },
+    { method: "glm", alphaMultiplier: 0.6 }
+  ];
+
+  return profiles.map((profile) => {
+    const methodResults = applySignalPostProcessing(
+      runDemoModel(rows, detectionWeeks, alphaUpper * profile.alphaMultiplier, denominatorPopulation),
+      minCasesSignal
+    );
+    const evaluationRows = methodResults.slice(-detectionWeeks);
+    let truePositive = 0;
+    let falsePositive = 0;
+    let trueNegative = 0;
+    let falseNegative = 0;
+
+    for (const row of evaluationRows) {
+      const truth = truthByWeek.get(`${row.year}-${row.week}`) ?? false;
+      const predicted = row.alarm === true;
+      if (truth && predicted) truePositive += 1;
+      if (!truth && predicted) falsePositive += 1;
+      if (!truth && !predicted) trueNegative += 1;
+      if (truth && !predicted) falseNegative += 1;
+    }
+
+    const sensitivityDenominator = truePositive + falseNegative;
+    const specificityDenominator = trueNegative + falsePositive;
+
+    return {
+      method: profile.method,
+      label: methodLabel(profile.method),
+      sensitivity: sensitivityDenominator > 0 ? truePositive / sensitivityDenominator : null,
+      specificity: specificityDenominator > 0 ? trueNegative / specificityDenominator : null,
+      alarms: evaluationRows.filter((row) => row.alarm).length,
+      trueSignalWeeks: sensitivityDenominator
+    };
+  });
+}
+
+function bestProfile(profiles: SensitivityProfile[], metric: "sensitivity" | "specificity"): SensitivityProfile | null {
+  return profiles
+    .filter((profile) => profile[metric] !== null)
+    .sort((a, b) => (b[metric] ?? -1) - (a[metric] ?? -1) || a.alarms - b.alarms)[0] ?? null;
+}
+
 function historicWeeks(from: string, to: string, detectionWeeks: number): number {
   const start = Date.parse(`${from}T00:00:00Z`);
   const end = Date.parse(`${to}T00:00:00Z`) - detectionWeeks * 7 * 24 * 60 * 60 * 1000;
@@ -556,6 +646,19 @@ function download(name: string, content: string, type: string) {
   URL.revokeObjectURL(url);
 }
 
+function printReportAsPdf(content: string) {
+  const reportWindow = window.open("", "_blank");
+  if (!reportWindow) {
+    download("episignal-report.html", content, "text/html");
+    return;
+  }
+  reportWindow.document.open();
+  reportWindow.document.write(content);
+  reportWindow.document.close();
+  reportWindow.focus();
+  window.setTimeout(() => reportWindow.print(), 250);
+}
+
 function escapeHtml(value: unknown): string {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -601,7 +704,7 @@ function buildShinyLikeHtmlReport({
       rows: "Linhas",
       weeks: "Semanas ISO",
       alarms: "Alarmes",
-      flags: "Estratos com flag",
+      flags: "Estratos com alarme",
       parameters: "Parâmetros críticos",
       method: "Método",
       disease: "Agente/doença",
@@ -609,7 +712,7 @@ function buildShinyLikeHtmlReport({
       alpha: "p-value cutoff",
       filters: "Filtros",
       interpretation: "Interpretação epidemiológica",
-      interpretationText: "A leitura deve combinar magnitude, distribuição territorial/demográfica, plausibilidade temporal e qualidade do denominador. Uma flag estatística não é, por si só, confirmação de surto.",
+      interpretationText: "A leitura deve combinar magnitude, distribuição territorial/demográfica, plausibilidade temporal e qualidade do denominador. Um alarme estatístico não é, por si só, confirmação de surto.",
       limitations: "Limitações",
       limitationsText: "Amostra sintética sem dados reais de saúde. Uso operacional requer governação, base legal, controlo de acessos, retenção documentada, validação local e revisão epidemiológica.",
       table: "Anexo: tabela semanal",
@@ -624,7 +727,7 @@ function buildShinyLikeHtmlReport({
       rows: "Rows",
       weeks: "ISO weeks",
       alarms: "Alarms",
-      flags: "Flagged strata",
+      flags: "Alarmed strata",
       parameters: "Critical parameters",
       method: "Method",
       disease: "Disease/pathogen",
@@ -632,7 +735,7 @@ function buildShinyLikeHtmlReport({
       alpha: "p-value cutoff",
       filters: "Filters",
       interpretation: "Epidemiological interpretation",
-      interpretationText: "Interpretation should combine magnitude, territorial/demographic distribution, temporal plausibility and denominator quality. A statistical flag is not, by itself, outbreak confirmation.",
+      interpretationText: "Interpretation should combine magnitude, territorial/demographic distribution, temporal plausibility and denominator quality. A statistical alarm is not, by itself, outbreak confirmation.",
       limitations: "Limitations",
       limitationsText: "Synthetic sample without real health data. Operational use requires governance, legal basis, access control, documented retention, local validation and epidemiological review.",
       table: "Appendix: weekly table",
@@ -706,6 +809,12 @@ function buildShinyLikeHtmlReport({
     .alarm { color: #b42318; font-weight: 700; }
     footer { color: #667085; font-size: 12px; }
     .appendix { max-width: 1280px; margin: 24px auto; background: white; padding: 20px; border: 1px solid #d7dce6; }
+    @page { size: A4 landscape; margin: 10mm; }
+    @media print {
+      body { margin: 0; background: #fff; }
+      .slide { width: 100%; max-width: none; box-shadow: none; break-after: page; }
+      .appendix { max-width: none; border: 0; break-before: page; }
+    }
   </style>
 </head>
 <body>
@@ -797,7 +906,7 @@ function ReportOnePager({
         <div><span>{isPt ? "Casos filtrados" : "Filtered cases"}</span><strong>{summary.rows}</strong></div>
         <div><span>{isPt ? "Semanas ISO" : "ISO weeks"}</span><strong>{summary.weeks}</strong></div>
         <div><span>{isPt ? "Alarmes" : "Alarms"}</span><strong>{unstratifiedAlarms}</strong></div>
-        <div><span>{isPt ? "Estratos flagged" : "Flagged strata"}</span><strong>{signalCount}</strong></div>
+        <div><span>{isPt ? "Estratos com alarme" : "Alarmed strata"}</span><strong>{signalCount}</strong></div>
       </div>
       <div className={styles.reportSlideGrid}>
         <section>
@@ -831,8 +940,8 @@ function ReportOnePager({
         <section>
           <h3>{isPt ? "Leitura epidemiológica" : "Epidemiological reading"}</h3>
           <p>{isPt
-            ? "Interpretar flags estatísticas em conjunto com magnitude, concentração territorial, distribuição por idade/sexo e plausibilidade temporal."
-            : "Interpret statistical flags alongside magnitude, territorial concentration, age/sex distribution and temporal plausibility."}</p>
+            ? "Interpretar alarmes estatísticos em conjunto com magnitude, concentração territorial, distribuição por idade/sexo e plausibilidade temporal."
+            : "Interpret statistical alarms alongside magnitude, territorial concentration, age/sex distribution and temporal plausibility."}</p>
           <p>{denominatorNote ?? (isPt ? "Sem denominador específico: leitura em contagens." : "No specific denominator: counts-only reading.")}</p>
           <p><strong>{isPt ? "Limitação:" : "Limitation:"}</strong> {isPt ? "amostra de demonstração; não contém dados pessoais ou registos reais de vigilância." : "demonstration sample; contains no personal data or real surveillance records."}</p>
         </section>
@@ -847,7 +956,7 @@ function MiniTabs({
   onSectionChange,
   language
 }: {
-  activeSection?: SectionKey;
+  activeSection?: SectionKey | "somer";
   onSectionChange?: (section: SectionKey) => void;
   language: Language;
 }) {
@@ -857,13 +966,18 @@ function MiniTabs({
     { label: t.tabs.data, icon: "□", section: "data" },
     { label: t.tabs.input, icon: "?", section: "input" },
     { label: t.tabs.signals, icon: "╬", section: "signals" },
-    { label: t.tabs.report, icon: "↓", section: "report" }
+    { label: t.tabs.report, icon: "↓", section: "report" },
+    { label: t.tabs.somer, icon: "◎", href: "/episomer" }
   ];
   return (
     <nav className={styles.tabs} aria-label="Application sections">
       {tabs.map((tab) => (
         "href" in tab ? (
-          <Link key={tab.label} href={tab.href}>
+          <Link
+            key={tab.label}
+            href={`${tab.href}?lang=${language}` as Route}
+            className={activeSection === "somer" && tab.href === "/episomer" ? styles.activeTab : ""}
+          >
             <span aria-hidden="true">{tab.icon}</span>
             {tab.label}
           </Link>
@@ -1005,6 +1119,7 @@ function ChartControl({
 function MapPanControl({
   labels,
   disabled,
+  panStep,
   onPan
 }: {
   labels: {
@@ -1019,14 +1134,15 @@ function MapPanControl({
     panRightShort: string;
   };
   disabled: boolean;
+  panStep: number;
   onPan: (dx: number, dy: number) => void;
 }) {
   return (
     <div className={styles.mapPanControls} aria-label={labels.pan}>
-      <button type="button" disabled={disabled} onClick={() => onPan(0, 34)} aria-label={labels.panUp}>{labels.panUpShort}</button>
-      <button type="button" disabled={disabled} onClick={() => onPan(34, 0)} aria-label={labels.panLeft}>{labels.panLeftShort}</button>
-      <button type="button" disabled={disabled} onClick={() => onPan(-34, 0)} aria-label={labels.panRight}>{labels.panRightShort}</button>
-      <button type="button" disabled={disabled} onClick={() => onPan(0, -34)} aria-label={labels.panDown}>{labels.panDownShort}</button>
+      <button type="button" disabled={disabled} onClick={() => onPan(0, -panStep)} aria-label={labels.panUp}>{labels.panUpShort}</button>
+      <button type="button" disabled={disabled} onClick={() => onPan(-panStep, 0)} aria-label={labels.panLeft}>{labels.panLeftShort}</button>
+      <button type="button" disabled={disabled} onClick={() => onPan(panStep, 0)} aria-label={labels.panRight}>{labels.panRightShort}</button>
+      <button type="button" disabled={disabled} onClick={() => onPan(0, panStep)} aria-label={labels.panDown}>{labels.panDownShort}</button>
     </div>
   );
 }
@@ -1245,6 +1361,7 @@ function GroupedBarChart({
   items,
   max,
   showSignalCounts,
+  language,
   zoom,
   controls
 }: {
@@ -1252,10 +1369,12 @@ function GroupedBarChart({
   items: StratumItem[];
   max: number;
   showSignalCounts: boolean;
+  language: Language;
   zoom: number;
   controls: ReactNode;
 }) {
   const denominator = Math.max(1, max / Math.max(0.5, zoom));
+  const isPt = language === "pt";
   return (
     <figure className={styles.barPanel}>
       <figcaption>
@@ -1263,8 +1382,8 @@ function GroupedBarChart({
         {controls}
       </figcaption>
       <div className={styles.legend}>
-        <span><i className={styles.signalKey} /> Signal marker</span>
-        <span><i className={styles.noSignalKey} /> No signal marker</span>
+        <span><i className={styles.signalKey} /> {isPt ? "Marcador de alarme" : "Signal marker"}</span>
+        <span><i className={styles.noSignalKey} /> {isPt ? "Sem alarme" : "No alarm"}</span>
       </div>
       <div className={styles.strataBars}>
         {items.map((item) => (
@@ -1279,7 +1398,7 @@ function GroupedBarChart({
               </div>
             </div>
             <span className={item.signal ? styles.strataFlag : styles.strataNoFlag}>
-              {item.signal ? (showSignalCounts ? `${item.signals} flagged` : "flagged") : ""}
+              {item.signal ? (showSignalCounts ? `${item.signals} ${isPt ? "alarme" : "alarm"}` : isPt ? "alarme" : "alarm") : ""}
             </span>
           </div>
         ))}
@@ -1288,20 +1407,21 @@ function GroupedBarChart({
   );
 }
 
-function WeeklyTable({ results }: { results: WeeklyResult[] }) {
+function WeeklyTable({ results, language }: { results: WeeklyResult[]; language: Language }) {
+  const isPt = language === "pt";
   return (
     <div className={styles.tableWrap}>
       <table>
         <thead>
           <tr>
-            <th>Year</th>
-            <th>Week</th>
-            <th>Cases</th>
-            <th>Signal</th>
-            <th>Expected</th>
-            <th>Upper bound</th>
-            <th>Denominator</th>
-            <th>Crude rate/100k</th>
+            <th>{isPt ? "Ano" : "Year"}</th>
+            <th>{isPt ? "Semana" : "Week"}</th>
+            <th>{isPt ? "Casos" : "Cases"}</th>
+            <th>{isPt ? "Sinal" : "Signal"}</th>
+            <th>{isPt ? "Esperado" : "Expected"}</th>
+            <th>{isPt ? "Limite superior" : "Upper bound"}</th>
+            <th>{isPt ? "População" : "Denominator"}</th>
+            <th>{isPt ? "Taxa bruta/100k" : "Crude rate/100k"}</th>
           </tr>
         </thead>
         <tbody>
@@ -1355,15 +1475,18 @@ function TimeSeriesChart({
   detectionWeeks,
   visibleWeeksTarget,
   controls,
+  sensitivityProfiles,
   language
 }: {
   results: WeeklyResult[];
   detectionWeeks: number;
   visibleWeeksTarget: number;
   controls: ReactNode;
+  sensitivityProfiles: SensitivityProfile[];
   language: Language;
 }) {
   const isPt = language === "pt";
+  const sensitivityCopy = copy[language].sensitivity;
   const width = 920;
   const height = 330;
   const pad = { top: 42, right: 34, bottom: 58, left: 62 };
@@ -1389,6 +1512,8 @@ function TimeSeriesChart({
   const latest = visibleResults[visibleResults.length - 1];
   const tickEvery = Math.max(1, Math.ceil(visibleResults.length / 8));
   const historyWeeks = Math.max(0, results.length - detectionWeeks);
+  const mostSensitive = bestProfile(sensitivityProfiles, "sensitivity");
+  const mostSpecific = bestProfile(sensitivityProfiles, "specificity");
 
   return (
     <figure className={styles.timeSeriesPanel}>
@@ -1407,6 +1532,18 @@ function TimeSeriesChart({
         <span>{isPt ? "Alarmes visíveis" : "Alarms in view"}: {alarms}</span>
         <span>{isPt ? "Esperado mais recente" : "Latest expected"}: {latest?.expected === null || latest?.expected === undefined ? "n/a" : latest.expected.toFixed(1)}</span>
         <span>{isPt ? "Limite superior mais recente" : "Latest upper bound"}: {latest?.upperbound === null || latest?.upperbound === undefined ? "n/a" : latest.upperbound.toFixed(1)}</span>
+      </div>
+      <div className={styles.sensitivityLine}>
+        <strong>{sensitivityCopy.title}</strong>
+        {mostSensitive && mostSpecific ? (
+          <span>
+            {sensitivityCopy.bestSensitive}: {mostSensitive.label} ({Math.round((mostSensitive.sensitivity ?? 0) * 100)}%);
+            {" "}{sensitivityCopy.bestSpecific}: {mostSpecific.label} ({Math.round((mostSpecific.specificity ?? 0) * 100)}%).
+            {" "}<em>{sensitivityCopy.note}</em>
+          </span>
+        ) : (
+          <span>{sensitivityCopy.unavailable}</span>
+        )}
       </div>
       <svg className={styles.timeChart} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={isPt ? "Casos semanais, alarmes e limite superior" : "Weekly cases, alarms and upper threshold"}>
         <rect className={styles.detectionBand} x={detectionX} y={pad.top} width={detectionWidth} height={plotHeight} />
@@ -1563,6 +1700,10 @@ function HomeContent() {
     () => applySignalPostProcessing(runDemoModel(filteredCases, detectionWeeks, alphaUpper, denominatorResolution.population), minCasesSignal),
     [denominatorResolution.population, filteredCases, detectionWeeks, alphaUpper, minCasesSignal]
   );
+  const sensitivityProfiles = useMemo(
+    () => evaluateMethodProfiles(filteredCases, detectionWeeks, alphaUpper, denominatorResolution.population, minCasesSignal),
+    [denominatorResolution.population, filteredCases, detectionWeeks, alphaUpper, minCasesSignal]
+  );
   const summary = useMemo(
     () => summarize(filteredCases, results, detectionWeeks, denominatorResolution.population),
     [denominatorResolution.population, filteredCases, results, detectionWeeks]
@@ -1601,10 +1742,20 @@ function HomeContent() {
     [ageGroupItems, districtItems, sexItems]
   );
   const signalCount = signalStrata.age_group + signalStrata.district + signalStrata.sex;
+  const clampMapPan = (nextZoom: number, pan: MapPan): MapPan => {
+    const xRange = Math.max(35, (PORTUGAL_MAP_VIEWBOX.width * (nextZoom - 1)) / 2 + 40);
+    const yRange = Math.max(45, (PORTUGAL_MAP_VIEWBOX.height * (nextZoom - 1)) / 2 + 45);
+    return {
+      x: Math.max(-xRange, Math.min(xRange, pan.x)),
+      y: Math.max(-yRange, Math.min(yRange, pan.y))
+    };
+  };
   const nudgeMapPan = (dx: number, dy: number) => {
+    const xRange = Math.max(35, (PORTUGAL_MAP_VIEWBOX.width * (mapZoom - 1)) / 2 + 40);
+    const yRange = Math.max(45, (PORTUGAL_MAP_VIEWBOX.height * (mapZoom - 1)) / 2 + 45);
     setMapPan((current) => ({
-      x: Math.max(-1200, Math.min(1200, current.x + dx)),
-      y: Math.max(-1200, Math.min(1200, current.y + dy))
+      x: Math.max(-xRange, Math.min(xRange, current.x + dx)),
+      y: Math.max(-yRange, Math.min(yRange, current.y + dy))
     }));
   };
   const resetMapViewport = () => {
@@ -1619,7 +1770,13 @@ function HomeContent() {
   };
   const handleMapZoomChange = (nextZoom: number) => {
     setMapZoom(nextZoom);
-    if (nextZoom <= 1 && mapLevel === "district") setMapPan({ x: 0, y: 0 });
+    if (mapLevel === "district" && nextZoom <= 1) {
+      setMapPan({ x: 0, y: 0 });
+      return;
+    }
+    if (mapLevel === "municipality") {
+      setMapPan((current) => clampMapPan(nextZoom, current));
+    }
   };
   const ageGroupMax = Math.max(1, ...ageGroupItems.map((item) => item.cases));
   const sexMax = Math.max(1, ...sexItems.map((item) => item.cases));
@@ -1860,7 +2017,7 @@ function HomeContent() {
           <h2>{language === "pt" ? "Configuração da análise" : "Analysis configuration"}</h2>
           <span>{language === "pt" ? "Configuração completa antes da interpretação dos sinais." : "Complete configuration before interpreting signals."}</span>
         </div>
-        <div className={styles.configSummaryGrid}>
+            <div className={styles.configSummaryGrid}>
           <div>
             <strong>{language === "pt" ? "Histórico disponível" : "Available history"}</strong>
             <span>{weeksAvailable} {language === "pt" ? "semanas ISO" : "ISO weeks"}</span>
@@ -1880,8 +2037,8 @@ function HomeContent() {
         </div>
         <div className={styles.methodNote}>
           {language === "pt"
-            ? "Parâmetros segue a lógica do SignalDetectionTool original: dados, filtros, estratos, período e algoritmo são definidos aqui; Sinais fica para leitura e exploração dos resultados."
-            : "Input parameters follows the original SignalDetectionTool logic: data, filters, strata, period and algorithm are defined here; Signals is kept for reading and exploring results."}
+            ? "Parâmetros seguem a lógica do SignalDetectionTool original: dados, filtros, estratos, período e algoritmo são definidos aqui; Sinais ficam para leitura e exploração dos resultados."
+            : "Input parameters follow the original SignalDetectionTool logic: data, filters, strata, period and algorithm are defined here; Signals is kept for reading and exploring results."}
         </div>
         <h3 className={styles.sectionSubheading}>{t.strata.title}</h3>
         <div className={styles.checkboxList}>
@@ -1977,6 +2134,7 @@ function HomeContent() {
             onSelectDistrict={(district) => {
               const fitted = fitMunicipalityViewport(portugalMunicipalityShapesByDistrict[district] ?? []);
               setSelectedMapDistrict(district);
+              setSelectedMunicipality("All");
               setMapLevel("municipality");
               setMapZoom(fitted.zoom);
               setMapPan(fitted.pan);
@@ -2026,7 +2184,7 @@ function HomeContent() {
             controls={(
               <ChartControl
                 label={t.chartControls.mapZoom}
-                min={1}
+                min={MUNICIPALITY_MIN_ZOOM}
                 max={5}
                 step={0.1}
                 value={mapZoom}
@@ -2040,6 +2198,7 @@ function HomeContent() {
               <MapPanControl
                 labels={t.chartControls}
                 disabled={false}
+                panStep={Math.max(6, Math.round(26 / mapZoom))}
                 onPan={nudgeMapPan}
               />
             )}
@@ -2051,6 +2210,7 @@ function HomeContent() {
             items={ageGroupItems}
             max={ageGroupMax}
             showSignalCounts={showSignalCounts}
+            language={language}
             zoom={ageGroupZoom}
             controls={(
               <ChartControl
@@ -2073,6 +2233,7 @@ function HomeContent() {
             items={sexItems}
             max={sexMax}
             showSignalCounts={showSignalCounts}
+            language={language}
             zoom={sexZoom}
             controls={(
               <ChartControl
@@ -2098,6 +2259,7 @@ function HomeContent() {
           detectionWeeks={detectionWeeks}
           visibleWeeksTarget={effectiveTimeWindowWeeks}
           language={language}
+          sensitivityProfiles={sensitivityProfiles}
           controls={(
             <ChartControl
               label={t.chartControls.timeWindow}
@@ -2137,7 +2299,7 @@ function HomeContent() {
           {includeTables ? (
             <div className={styles.reportAppendix}>
               <h3>{language === "pt" ? "Anexo opcional: tabela semanal" : "Optional appendix: weekly table"}</h3>
-              <WeeklyTable results={results} />
+              <WeeklyTable results={results} language={language} />
             </div>
           ) : null}
         </article>
@@ -2153,6 +2315,7 @@ function HomeContent() {
               {t.report.format}
               <select value={reportFormat} onChange={(event) => setReportFormat(event.target.value)}>
                 <option>HTML</option>
+                <option>PDF</option>
                 <option>JSON</option>
               </select>
             </label>
@@ -2170,7 +2333,12 @@ function HomeContent() {
               download("episignal-report-summary.json", JSON.stringify({ title: reportTitle, format: reportFormat, includeTables, summary, signalCount, signalStrata, parameters, results }, null, 2), "application/json");
               return;
             }
-            download("episignal-report.html", buildShinyLikeHtmlReport({ title: reportTitle, format: reportFormat, includeTables, language, summary, signalCount, parameters, results, signalStrata }), "text/html");
+            const reportHtml = buildShinyLikeHtmlReport({ title: reportTitle, format: reportFormat, includeTables, language, summary, signalCount, parameters, results, signalStrata });
+            if (reportFormat === "PDF") {
+              printReportAsPdf(reportHtml);
+              return;
+            }
+            download("episignal-report.html", reportHtml, "text/html");
           }}>
             {t.actions.createReport}
           </button>
