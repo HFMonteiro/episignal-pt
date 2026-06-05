@@ -32,21 +32,27 @@ const sources = [
 
 const copy = {
   pt: {
-    eyebrow: "Integração Episomer",
-    title: "Sinais sociais agregados para revisão epidemiológica",
+    eyebrow: "Episomer preview",
+    title: "Sinais digitais agregados para revisão epidemiológica",
     intro:
-      "Esta página mostra como o episignal-pt deve receber resultados do Episomer: apenas agregados por tópico, território e período. Não há recolha de posts nesta app e estes sinais não entram como casos ou incidência.",
-    badges: ["Contrato de dados agregado", "Separado da line-list clínica", "Preparado para worker R"],
+      "Esta página é uma pré-visualização da integração com Episomer. A versão real deve correr num worker R separado, recolher sinais sociais por tópico e devolver apenas agregados por território e período. Esta app não recolhe posts, notícias ou dados pessoais.",
+    badges: ["Demo, não live", "Contrato de dados agregado", "Separado da line-list clínica", "Preparado para worker R"],
     topic: "Tópico",
     location: "Local",
     all: "Todos",
     export: "Exportar agregados JSON",
-    modelTitle: "Modelo de integração",
+    statusTitle: "Estado da integração",
+    status: "Worker Episomer não ligado",
+    statusDetail: "A visualização abaixo usa agregados sintéticos. O modo live requer instalação/configuração de Episomer, credenciais das APIs sociais e governação explícita.",
+    sourceMode: "Origem dos sinais",
+    sourceModeValue: "Amostra demonstrativa",
+    sourceModeLive: "Live: Bluesky/social APIs via worker R",
+    modelTitle: "Arquitetura alvo",
     model: [
-      "Episomer recolhe e classifica posts no seu ambiente R/Shiny.",
-      "O worker devolve apenas contagens agregadas, esperado, limiar e estado de alerta.",
-      "A app mostra esses sinais como fila de revisão, sem os misturar com casos notificados.",
-      "A revisão humana decide observar, escalar ou descartar antes de qualquer ação."
+      "Episomer recolhe posts por tópicos/keywords e calcula agregados no ambiente R.",
+      "O worker expõe apenas contagens, esperado, limiar, alerta e metadados de execução.",
+      "O frontend apresenta os sinais como fila de revisão, sem os converter em casos ou incidência.",
+      "A equipa de vigilância valida, contextualiza e decide observar, escalar ou descartar."
     ],
     metrics: {
       rows: "agregados",
@@ -56,30 +62,43 @@ const copy = {
       escalated: "escalados",
       maxScore: "score máx."
     },
-    chartTitle: "Volume observado versus limiar",
+    chartTitle: "Volume demo observado versus limiar",
     tableTitle: "Fila de revisão",
     schemaTitle: "Contrato de dados esperado",
+    liveTitle: "Modo live proposto",
+    liveItems: [
+      "POST /episomer/search: tópico, keywords, território, janela temporal e fonte social.",
+      "GET /episomer/status: disponibilidade do R/Episomer, última execução e erros operacionais.",
+      "POST /episomer/aggregate: devolve apenas agregados revistos para o dashboard.",
+      "Sem raw posts no browser; retenção, anonimização e eliminação ficam no worker."
+    ],
     sourcesTitle: "Fontes e licença",
     empty: "Sem agregados para os filtros atuais.",
     note:
-      "Amostra demonstrativa. Em produção, estes campos devem vir de um worker R que execute Episomer e aplique governação de dados sociais."
+      "Amostra demonstrativa. Episomer é social media epidemic intelligence; notícias abertas/EIOS seriam outro conector e devem ter contrato e governação próprios."
   },
   en: {
-    eyebrow: "Episomer integration",
-    title: "Aggregated social signals for epidemiological review",
+    eyebrow: "Episomer preview",
+    title: "Aggregated digital signals for epidemiological review",
     intro:
-      "This page shows how episignal-pt should receive Episomer outputs: aggregates by topic, territory and period only. This app does not collect posts, and these signals are not cases or incidence.",
-    badges: ["Aggregate data contract", "Separate from clinical line-list", "Ready for an R worker"],
+      "This page previews the Episomer integration. The real version should run in a separate R worker, collect social signals by topic and return aggregates by territory and period only. This app does not collect posts, news or personal data.",
+    badges: ["Demo, not live", "Aggregate data contract", "Separate from clinical line-list", "Ready for an R worker"],
     topic: "Topic",
     location: "Location",
     all: "All",
     export: "Export aggregates JSON",
-    modelTitle: "Integration model",
+    statusTitle: "Integration status",
+    status: "Episomer worker not connected",
+    statusDetail: "The view below uses synthetic aggregates. Live mode requires Episomer installation/configuration, social API credentials and explicit governance.",
+    sourceMode: "Signal source",
+    sourceModeValue: "Demonstration sample",
+    sourceModeLive: "Live: Bluesky/social APIs via R worker",
+    modelTitle: "Target architecture",
     model: [
-      "Episomer collects and classifies posts in its R/Shiny environment.",
-      "The worker returns only aggregated counts, expected volume, threshold and alert status.",
-      "The app shows those signals as a review queue without mixing them with notified cases.",
-      "Human review decides whether to watch, escalate or dismiss before action."
+      "Episomer collects posts by topics/keywords and calculates aggregates in the R environment.",
+      "The worker exposes only counts, expected volume, threshold, alert status and run metadata.",
+      "The frontend presents signals as a review queue without turning them into cases or incidence.",
+      "The surveillance team validates, contextualises and decides whether to watch, escalate or dismiss."
     ],
     metrics: {
       rows: "aggregates",
@@ -89,13 +108,20 @@ const copy = {
       escalated: "escalated",
       maxScore: "max score"
     },
-    chartTitle: "Observed volume versus threshold",
+    chartTitle: "Demo observed volume versus threshold",
     tableTitle: "Review queue",
     schemaTitle: "Expected data contract",
+    liveTitle: "Proposed live mode",
+    liveItems: [
+      "POST /episomer/search: topic, keywords, territory, time window and social source.",
+      "GET /episomer/status: R/Episomer availability, latest run and operational errors.",
+      "POST /episomer/aggregate: returns reviewed aggregates only for the dashboard.",
+      "No raw posts in the browser; retention, anonymisation and deletion stay in the worker."
+    ],
     sourcesTitle: "Sources and licence",
     empty: "No aggregates for the current filters.",
     note:
-      "Demonstration sample. In production, these fields should come from an R worker running Episomer with social-data governance."
+      "Demonstration sample. Episomer is social media epidemic intelligence; open news/EIOS would be a separate connector with its own contract and governance."
   },
 } as const;
 
@@ -143,11 +169,32 @@ function EpisomerContent() {
 
         <section className={styles.somerPanel} aria-labelledby="episomer-model">
           <div className={styles.panelHeader}>
-            <h3 id="episomer-model">{t.modelTitle}</h3>
+            <div>
+              <h3 id="episomer-model">{t.statusTitle}</h3>
+              <p className={styles.somerStatusText}>{t.statusDetail}</p>
+            </div>
             <button type="button" onClick={() => download("episomer-aggregates-demo.json", episomerAggregatesToJson(rows), "application/json")}>
               {t.export}
             </button>
           </div>
+          <div className={styles.somerStatusGrid}>
+            <span>
+              <strong>{t.status}</strong>
+              <small>worker_status=offline</small>
+            </span>
+            <span>
+              <strong>{t.sourceModeValue}</strong>
+              <small>{t.sourceMode}</small>
+            </span>
+            <span>
+              <strong>{t.sourceModeLive}</strong>
+              <small>planned_mode</small>
+            </span>
+          </div>
+        </section>
+
+        <section className={styles.somerPanel} aria-labelledby="episomer-architecture">
+          <h3 id="episomer-architecture">{t.modelTitle}</h3>
           <ol className={styles.somerFlow}>
             {t.model.map((step) => (
               <li key={step}>{step}</li>
@@ -244,6 +291,15 @@ function EpisomerContent() {
             ))}
           </div>
           <p className={styles.mapSource}>{t.note}</p>
+        </section>
+
+        <section className={styles.somerPanel} aria-labelledby="episomer-live">
+          <h3 id="episomer-live">{t.liveTitle}</h3>
+          <ol className={styles.somerFlow}>
+            {t.liveItems.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ol>
         </section>
 
         <section className={styles.somerPanel} aria-labelledby="episomer-sources">

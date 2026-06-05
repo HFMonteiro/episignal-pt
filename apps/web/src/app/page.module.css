@@ -1999,6 +1999,49 @@
   color: #0f254a;
 }
 
+.somerStatusText {
+  max-width: 820px;
+  margin: 4px 0 0;
+  color: #526173;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.somerStatusGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.somerStatusGrid span {
+  display: grid;
+  gap: 5px;
+  border: 1px solid #d9e2f0;
+  border-left: 4px solid #d64550;
+  border-radius: 10px;
+  background: #fbfdff;
+  padding: 12px;
+}
+
+.somerStatusGrid span:nth-child(2) {
+  border-left-color: #e18d11;
+}
+
+.somerStatusGrid span:nth-child(3) {
+  border-left-color: #3d5b98;
+}
+
+.somerStatusGrid strong {
+  color: #10213d;
+  font-size: 0.94rem;
+}
+
+.somerStatusGrid small {
+  color: #667085;
+  font-family: "Courier New", monospace;
+  font-size: 0.74rem;
+}
+
 .episomerFilters {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

@@ -117,9 +117,12 @@ export function summarizeEpisomerAggregates(rows: EpisomerAggregate[]) {
 export function episomerAggregatesToJson(rows: EpisomerAggregate[]): string {
   return JSON.stringify(
     {
-      source: "episignal-pt demo",
+      source: "episignal-pt demonstration sample",
       upstream: "https://github.com/EU-ECDC/episomer",
+      worker_status: "offline",
+      live_collection: false,
       contract: "topic/location/date/posts_observed/posts_expected/threshold/alert/review_status",
+      note: "Synthetic aggregates only. No live social media, news, raw posts or personal data are included.",
       rows
     },
     null,
