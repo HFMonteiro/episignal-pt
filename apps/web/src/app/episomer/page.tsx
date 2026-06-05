@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
 
-import { episomerAggregatesToJson, episomerDemoAggregates, episomerSchema, summarizeEpisomerAggregates } from "@/lib/episomer";
+import { episomerAggregatesToJson, episomerDemoAggregates, episomerSchema, summarizeEpisomerAggregates, type EpisomerAggregate, type EpisomerLiveResponse } from "@/lib/episomer";
 import { AppHeader, MiniTabs } from "../page";
 import styles from "../page.module.css";
 
@@ -38,12 +38,19 @@ const copy = {
       "Esta página é uma pré-visualização da integração com Episomer. A versão real deve correr num worker R separado, recolher sinais sociais por tópico e devolver apenas agregados por território e período. Esta app não recolhe posts, notícias ou dados pessoais.",
     badges: ["Demo, não live", "Contrato de dados agregado", "Separado da line-list clínica", "Preparado para worker R"],
     topic: "Tópico",
+    liveTopic: "Tópico/keywords live",
+    liveTopicPlaceholder: "ex.: measles OR sarampo OR outbreak",
     location: "Local",
     all: "Todos",
     export: "Exportar agregados JSON",
+    collectLive: "Recolher live 10s",
+    collecting: "A recolher...",
+    liveResults: "Resultados live",
+    liveArticles: "Artigos recolhidos",
+    liveFallback: "Ainda sem recolha live nesta sessão.",
     statusTitle: "Estado da integração",
     status: "Worker Episomer não ligado",
-    statusDetail: "A visualização abaixo usa agregados sintéticos. O modo live requer instalação/configuração de Episomer, credenciais das APIs sociais e governação explícita.",
+    statusDetail: "A visualização abaixo começa com agregados sintéticos. O botão live executa uma recolha curta de notícias abertas; o modo Episomer social-media real requer worker R, APIs sociais e governação explícita.",
     sourceMode: "Origem dos sinais",
     sourceModeValue: "Amostra demonstrativa",
     sourceModeLive: "Live: Bluesky/social APIs via worker R",
@@ -62,7 +69,7 @@ const copy = {
       escalated: "escalados",
       maxScore: "score máx."
     },
-    chartTitle: "Volume demo observado versus limiar",
+    chartTitle: "Volume observado versus limiar",
     tableTitle: "Fila de revisão",
     schemaTitle: "Contrato de dados esperado",
     liveTitle: "Modo live proposto",
@@ -84,12 +91,19 @@ const copy = {
       "This page previews the Episomer integration. The real version should run in a separate R worker, collect social signals by topic and return aggregates by territory and period only. This app does not collect posts, news or personal data.",
     badges: ["Demo, not live", "Aggregate data contract", "Separate from clinical line-list", "Ready for an R worker"],
     topic: "Topic",
+    liveTopic: "Live topic/keywords",
+    liveTopicPlaceholder: "e.g. measles OR outbreak OR pertussis",
     location: "Location",
     all: "All",
     export: "Export aggregates JSON",
+    collectLive: "Collect live 10s",
+    collecting: "Collecting...",
+    liveResults: "Live results",
+    liveArticles: "Collected articles",
+    liveFallback: "No live collection in this session yet.",
     statusTitle: "Integration status",
     status: "Episomer worker not connected",
-    statusDetail: "The view below uses synthetic aggregates. Live mode requires Episomer installation/configuration, social API credentials and explicit governance.",
+    statusDetail: "The view below starts with synthetic aggregates. The live button runs a short open-news collection; real Episomer social-media mode requires an R worker, social APIs and explicit governance.",
     sourceMode: "Signal source",
     sourceModeValue: "Demonstration sample",
     sourceModeLive: "Live: Bluesky/social APIs via R worker",
@@ -108,7 +122,7 @@ const copy = {
       escalated: "escalated",
       maxScore: "max score"
     },
-    chartTitle: "Demo observed volume versus threshold",
+    chartTitle: "Observed volume versus threshold",
     tableTitle: "Review queue",
     schemaTitle: "Expected data contract",
     liveTitle: "Proposed live mode",
@@ -135,20 +149,58 @@ function download(name: string, content: string, type: string) {
   URL.revokeObjectURL(url);
 }
 
+function liveRowsToJson(result: EpisomerLiveResponse | null, rows: EpisomerAggregate[]): string {
+  if (!result) return episomerAggregatesToJson(rows);
+  return JSON.stringify(result, null, 2);
+}
+
 function EpisomerContent() {
   const searchParams = useSearchParams();
   const language: Language = searchParams.get("lang") === "en" ? "en" : "pt";
   const t = copy[language];
   const [topic, setTopic] = useState<string>(t.all);
   const [location, setLocation] = useState<string>(t.all);
+  const [liveTopic, setLiveTopic] = useState("measles OR pertussis OR outbreak");
+  const [liveResult, setLiveResult] = useState<EpisomerLiveResponse | null>(null);
+  const [liveProgress, setLiveProgress] = useState(0);
+  const [liveError, setLiveError] = useState<string | null>(null);
+  const [isCollecting, setIsCollecting] = useState(false);
   const topics = useMemo(() => [...new Set(episomerDemoAggregates.map((row) => row.topic))], []);
   const locations = useMemo(() => [...new Set(episomerDemoAggregates.map((row) => row.location))], []);
+  const activeAggregates = liveResult?.aggregates.length ? liveResult.aggregates : episomerDemoAggregates;
+  const activeTopicOptions = useMemo(() => [...new Set(activeAggregates.map((row) => row.topic))], [activeAggregates]);
+  const activeLocationOptions = useMemo(() => [...new Set(activeAggregates.map((row) => row.location))], [activeAggregates]);
   const rows = useMemo(
-    () => episomerDemoAggregates.filter((row) => (topic === t.all || row.topic === topic) && (location === t.all || row.location === location)),
-    [location, t.all, topic]
+    () => activeAggregates.filter((row) => (topic === t.all || row.topic === topic) && (location === t.all || row.location === location)),
+    [activeAggregates, location, t.all, topic]
   );
   const summary = useMemo(() => summarizeEpisomerAggregates(rows), [rows]);
   const chartMax = Math.max(1, ...rows.map((row) => Math.max(row.posts_observed, row.threshold)));
+
+  async function collectLiveSignals() {
+    setIsCollecting(true);
+    setLiveError(null);
+    setLiveProgress(0);
+    const started = Date.now();
+    const timer = window.setInterval(() => {
+      setLiveProgress(Math.min(95, Math.round(((Date.now() - started) / 10000) * 100)));
+    }, 250);
+    try {
+      const params = new URLSearchParams({ topic: liveTopic, seconds: "10" });
+      const response = await fetch(`/api/episomer/live?${params.toString()}`, { cache: "no-store" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json() as EpisomerLiveResponse;
+      setLiveResult(payload);
+      setTopic(t.all);
+      setLocation(t.all);
+      setLiveProgress(100);
+    } catch (error) {
+      setLiveError(error instanceof Error ? error.message : "Live collection failed");
+    } finally {
+      window.clearInterval(timer);
+      setIsCollecting(false);
+    }
+  }
 
   return (
     <main className={styles.page}>
@@ -173,7 +225,7 @@ function EpisomerContent() {
               <h3 id="episomer-model">{t.statusTitle}</h3>
               <p className={styles.somerStatusText}>{t.statusDetail}</p>
             </div>
-            <button type="button" onClick={() => download("episomer-aggregates-demo.json", episomerAggregatesToJson(rows), "application/json")}>
+            <button type="button" onClick={() => download(liveResult ? "episignal-live-open-news.json" : "episomer-aggregates-demo.json", liveRowsToJson(liveResult, rows), "application/json")}>
               {t.export}
             </button>
           </div>
@@ -191,6 +243,30 @@ function EpisomerContent() {
               <small>planned_mode</small>
             </span>
           </div>
+          <div className={styles.episomerLiveControls}>
+            <label>
+              {t.liveTopic}
+              <input
+                value={liveTopic}
+                placeholder={t.liveTopicPlaceholder}
+                onChange={(event) => setLiveTopic(event.target.value)}
+              />
+            </label>
+            <button type="button" disabled={isCollecting} onClick={collectLiveSignals}>
+              {isCollecting ? t.collecting : t.collectLive}
+            </button>
+          </div>
+          <div className={styles.episomerProgress} aria-label={t.collecting}>
+            <span style={{ width: `${liveProgress}%` }} />
+          </div>
+          {liveError ? <p className={styles.alert}>{liveError}</p> : null}
+          {liveResult ? (
+            <p className={styles.somerStatusText}>
+              {t.liveResults}: {liveResult.articles.length} artigos, {liveResult.aggregates.length} agregados, {liveResult.seconds_elapsed}s. {liveResult.warning}
+            </p>
+          ) : (
+            <p className={styles.somerStatusText}>{t.liveFallback}</p>
+          )}
         </section>
 
         <section className={styles.somerPanel} aria-labelledby="episomer-architecture">
@@ -208,14 +284,14 @@ function EpisomerContent() {
               {t.topic}
               <select value={topic} onChange={(event) => setTopic(event.target.value)}>
                 <option>{t.all}</option>
-                {topics.map((item) => <option key={item}>{item}</option>)}
+                {(liveResult ? activeTopicOptions : topics).map((item) => <option key={item}>{item}</option>)}
               </select>
             </label>
             <label>
               {t.location}
               <select value={location} onChange={(event) => setLocation(event.target.value)}>
                 <option>{t.all}</option>
-                {locations.map((item) => <option key={item}>{item}</option>)}
+                {(liveResult ? activeLocationOptions : locations).map((item) => <option key={item}>{item}</option>)}
               </select>
             </label>
           </div>
@@ -278,6 +354,20 @@ function EpisomerContent() {
             </div>
           </article>
         </section>
+
+        {liveResult ? (
+          <section className={styles.somerPanel} aria-labelledby="episomer-live-articles">
+            <h3 id="episomer-live-articles">{t.liveArticles}</h3>
+            <div className={styles.episomerArticleList}>
+              {liveResult.articles.map((article) => (
+                <article key={article.url}>
+                  <a href={article.url} target="_blank" rel="noreferrer">{article.title}</a>
+                  <span>{article.source_domain || article.source_country} · {article.language || "n/a"} · {article.seen_at || liveResult.generated_at}</span>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <section className={styles.somerPanel} aria-labelledby="episomer-schema">
           <h3 id="episomer-schema">{t.schemaTitle}</h3>

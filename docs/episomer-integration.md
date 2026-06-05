@@ -2,7 +2,12 @@
 
 This project does not vendor or execute the ECDC Episomer package yet. The current page is a preview and browser-side contract for aggregated digital epidemic intelligence signals.
 
-It is not a live dashboard. It does not collect posts, current news, raw social media content, personal data, or open-source intelligence feeds.
+The page now has two modes:
+
+- demonstration aggregates embedded in the frontend;
+- a short live open-news scan triggered by the user, using a server-side endpoint and returning only article metadata and aggregates.
+
+It does not collect raw social media posts or personal data. The open-news scan is not the ECDC Episomer social-media worker; it is an adjacent event-based intelligence connector.
 
 ## Authoritative upstream
 
@@ -14,7 +19,19 @@ It is not a live dashboard. It does not collect posts, current news, raw social 
 
 Episomer signals are social media epidemic intelligence signals. They must not be treated as notified cases, incidence numerators, denominators, or outbreak confirmation.
 
-Current news and EIOS-style event feeds are adjacent epidemic intelligence sources, but they are not the same integration. If added later, they should use a separate connector, source label, review workflow and governance record.
+Current news and EIOS-style event feeds are adjacent epidemic intelligence sources, but they are not the same integration. The current implementation labels them as `OpenNews` and keeps them separate from social-media `Bluesky`/Episomer data.
+
+## Current live endpoint
+
+`GET /api/episomer/live?topic=<query>&seconds=10`
+
+Current implementation:
+
+- queries an open-news source server-side for up to ten seconds;
+- aggregates by source country/domain;
+- returns observed volume, expected volume, threshold, alert and review status;
+- returns a small list of article titles, source domains, language and URLs for human review;
+- does not persist collected data.
 
 The `episignal-pt` case-based signal workflow remains separate:
 

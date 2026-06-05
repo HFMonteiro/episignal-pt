@@ -9,9 +9,31 @@ export type EpisomerAggregate = {
   threshold: number;
   alert: boolean;
   review_status: EpisomerReviewStatus;
-  source: "Bluesky" | "Demo";
+  source: "Bluesky" | "Demo" | "OpenNews";
   geolocation_quality: "high" | "medium" | "low";
   signal_score: number;
+};
+
+export type EpisomerLiveArticle = {
+  title: string;
+  url: string;
+  source_domain: string;
+  source_country: string;
+  language: string;
+  seen_at: string;
+};
+
+export type EpisomerLiveResponse = {
+  mode: "open_news_live";
+  source: "GDELT";
+  topic: string;
+  query: string;
+  seconds_requested: number;
+  seconds_elapsed: number;
+  generated_at: string;
+  warning: string;
+  aggregates: EpisomerAggregate[];
+  articles: EpisomerLiveArticle[];
 };
 
 export type EpisomerField = {
