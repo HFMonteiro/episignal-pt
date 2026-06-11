@@ -1,120 +1,111 @@
 # Episomer preview and integration contract
 
-This project does not vendor or execute the ECDC Episomer package yet. The current page is a preview and browser-side contract for aggregated digital epidemic intelligence signals.
+This project exposes only a local preview of digital signal monitoring.
+The `/episomer` page currently uses:
 
-The page now has two modes:
+- synthetic aggregated samples for quick UI checks and schema training, and
+- a short public RSS live collector behind `/api/episomer/live` (`seconds` up to 10).
 
-- demonstration aggregates embedded in the frontend;
-- a short live open-news scan triggered by the user, using a server-side endpoint and returning only article metadata and aggregates.
+It does **not** collect raw article payloads, article content, identifiers, or personal data in the browser.
 
-It does not collect raw social media posts or personal data. The open-news scan is not the ECDC Episomer social-media worker; it is an adjacent event-based intelligence connector.
+The page is for method demonstration and operational rehearsal only.
 
 ## Authoritative upstream
 
-- ECDC public page: <https://www.ecdc.europa.eu/en/publications-data/episomer>
-- GitHub repository: <https://github.com/EU-ECDC/episomer>
-- Licence: EUPL-1.2 for Episomer upstream code.
+- ECDC page: https://www.ecdc.europa.eu/en/publications-data/episomer
+- GitHub: https://github.com/EU-ECDC/episomer
+- Licence: EUPL-1.2
 
-## Boundary
+## Boundary (implemented now)
 
-Episomer signals are social media epidemic intelligence signals. They must not be treated as notified cases, incidence numerators, denominators, or outbreak confirmation.
-
-Current news and EIOS-style event feeds are adjacent epidemic intelligence sources, but they are not the same integration. The current implementation labels them as `OpenNews` and keeps them separate from social-media `Bluesky`/Episomer data.
+- `apps/web` implements an interface prototype and transport contracts for aggregated signals.
+- `GET /api/episomer/live` performs read-only public RSS lookup and returns only aggregates + article links.
+- `GET /api/episomer/status` reports what is available on the current server.
+- This is not a notifier or diagnostic system for case confirmation.
+- RSS signals are not equivalent to a full epidemiological confirmation pipeline; they are complementary contextual signals.
 
 ## Current live endpoint
 
 `GET /api/episomer/live?topic=<query>&seconds=10`
 
-Current implementation:
+Current behavior:
 
-- queries an open-news source server-side for up to ten seconds;
-- aggregates by source country/domain;
-- returns observed volume, expected volume, threshold, alert and review status;
-- returns a small list of article titles, source domains, language and URLs for human review;
-- does not persist collected data.
+- query public RSS feeds (Google News RSS endpoint);
+- deduplicate article entries;
+- aggregate counts by source domain;
+- return:
+  - synthetic-like aggregates (`posts_observed`, `posts_expected`, `threshold`, `alert`),
+  - a short list of article metadata (`title`, `source_domain`, `language`, `url`, `seen_at`),
+  - a warning line documenting that this is RSS preview data.
 
-The `episignal-pt` case-based signal workflow remains separate:
+No data persists by default.
 
-- formal case line-list: `case_id`, `date_report`, `pathogen`, geography, age/sex and optional denominator;
-- digital aggregate: topic, place, period, post volume, expected volume, threshold, alert and review status.
+## Aggregate contract expected by frontend
 
-## Aggregate contract
-
-The frontend expects aggregated rows, not raw posts:
+The frontend works with aggregated rows, not raw article payloads:
 
 | Field | Meaning |
 |---|---|
-| `topic` | Disease, syndrome, hazard or monitored keyword group |
-| `location` | Review geography; not a case residence field |
-| `date` | Daily or weekly aggregation date |
-| `posts_observed` | Post count after collection, filtering and deduplication |
-| `posts_expected` | Expected digital baseline |
-| `threshold` | Upper digital signal threshold |
-| `alert` | Whether observed volume exceeds threshold |
-| `review_status` | `new`, `watch`, `escalated` or `dismissed` |
-| `source` | Social source or demo source |
-| `geolocation_quality` | Confidence tier for location assignment |
-| `signal_score` | Sorting score for review workload; not clinical risk |
+| `topic` | Disease/symptom/keyword group |
+| `location` | Geographic aggregation used for review |
+| `date` | Daily/weekly aggregation date |
+| `posts_observed` | Number of collected RSS items after filtering |
+| `posts_expected` | Baseline expectation |
+| `threshold` | Alert threshold |
+| `alert` | Observed >= threshold |
+| `review_status` | `new`, `watch`, `escalated`, `dismissed` |
+| `source` | `Demo` or `OpenNews` |
+| `geolocation_quality` | Confidence tier |
+| `signal_score` | Sort score for review workload |
 
-## Future R worker
+## Setup for RSS-only mode
 
-A real worker should call Episomer through R and return only aggregated records matching this contract. It should not expose API tokens, raw social posts, direct identifiers or the local Episomer database to the browser.
+This mode is intentionally lightweight:
 
-Authoritative installation sources state that Episomer is an R package, available from CRAN/R-universe/GitHub, currently collecting social media posts from Bluesky via API, with Shiny pages for dashboard, alerts, geotag evaluation, data protection, configuration and troubleshooting.
+- no Bluesky credentials;
+- no social media API secrets;
+- no external R runtime required for the preview.
 
-Minimum R installation:
+Minimum server variables:
 
-```r
-install.packages(
-  "episomer",
-  repos = c("https://eu-ecdc.r-universe.dev", "https://cloud.r-project.org")
-)
+```text
+EPISOMER_TOPIC_CONFIG_PATH=../../config/episomer/topics.yml
 ```
 
-Credential handling:
+Optional governance flags:
 
-- create a Bluesky app password for the service account used for monitoring;
-- store `BLUESKY_IDENTIFIER` and `BLUESKY_APP_PASSWORD` only in `.env.local`, the worker runtime, or Vercel/host secret storage;
-- do not expose social credentials through `NEXT_PUBLIC_*`;
-- prefer Episomer/keyring-native credential storage inside the R worker when running the full package;
-- rotate the app password if a developer machine or deployment secret is compromised.
+```text
+EPISOMER_GOV_DATA_PROTECTION_BASIS=false
+EPISOMER_GOV_RETENTION_POLICY=false
+EPISOMER_GOV_HUMAN_REVIEW=false
+EPISOMER_GOV_AUDIT_LOG=false
+```
 
-`apps/web` status endpoint:
+Optional future worker (if you later add a full Episomer backend):
+
+- set `EPISOMER_R_WORKER_URL` and expose the worker URL when you later add a full backend;
+- keep credentials in secure server storage only;
+- keep strict retention and deletion controls.
+
+## Status endpoint
 
 `GET /api/episomer/status`
 
-This endpoint reads server-side environment variables and returns redacted readiness checks. It never returns secrets.
+Returns:
 
-Required app/worker environment:
+- `worker_status`: `ready`, `partial`, `offline` (based on checks);
+- `source_mode`: now `open_news_only` for this repository configuration;
+- checks for RSS source, optional worker, topic config and governance;
+- `r_worker_url` when configured;
+- `updated_at`, `secrets_redacted: true` and required env list.
 
-```text
-EPISOMER_R_WORKER_URL=http://127.0.0.1:8091
-EPISOMER_PACKAGE_READY=true
-EPISOMER_TOPIC_CONFIG_PATH=../../config/episomer/topics.yml
-BLUESKY_IDENTIFIER=
-BLUESKY_APP_PASSWORD=
-EPISOMER_GOV_DATA_PROTECTION_BASIS=true
-EPISOMER_GOV_RETENTION_POLICY=true
-EPISOMER_GOV_HUMAN_REVIEW=true
-EPISOMER_GOV_AUDIT_LOG=true
-```
+## Governance note
 
-Topic/keyword configuration starts from `config/episomer/topics.example.yml`; copy it to a local non-public configuration file before operational use.
+Use this page only with explicit project approval for public health production.
 
-Minimum worker endpoints:
+Recommended checklist:
 
-- `GET /episomer/status`: R/Episomer availability, configured sources and last run metadata.
-- `POST /episomer/search`: topic, keyword set, geography, period, source and threshold configuration for a live collection/refresh request.
-- `POST /episomer/aggregate`: topic/location/date aggregates for a selected period.
-- `POST /episomer/export`: reviewed aggregates for audit/reporting.
-
-Minimum live metadata:
-
-- worker status: `offline`, `ready`, `running`, `error`;
-- source: `Bluesky`, other social API, or `Demo`;
-- collection period and timestamp of the last successful run;
-- topic and keyword version used;
-- geolocation confidence tier;
-- processing warnings and data-protection status.
-
-Before operational use, confirm licence compatibility, data protection basis, retention, audit logging, deletion workflow and human review governance.
+- define the evidence value threshold for escalation;
+- define who validates and escalates signals in the operational pipeline;
+- define retention and deletion policy even for article URLs/metadata;
+- keep the page clearly separate from case notification/classification systems.

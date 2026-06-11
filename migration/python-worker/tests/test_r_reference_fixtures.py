@@ -14,6 +14,12 @@ import pytest
 
 FIXTURES = Path(__file__).parent / "fixtures"
 DEFAULT_WINDOWS_RSCRIPT = Path(r"C:\Program Files\R\R-4.6.0\bin\Rscript.exe")
+RUN_R_REFERENCE_TESTS = os.environ.get("RUN_R_REFERENCE_TESTS", "").strip().lower() in {"1", "true", "yes"}
+
+pytestmark = pytest.mark.skipif(
+    not RUN_R_REFERENCE_TESTS,
+    reason="R reference fixture tests are opt-in; set RUN_R_REFERENCE_TESTS=1 to execute local Rscript.",
+)
 
 
 def _rscript_path() -> str | None:

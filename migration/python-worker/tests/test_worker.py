@@ -122,8 +122,29 @@ def test_methods_endpoint_exposes_bridge_metadata() -> None:
 
     payload = response.json()
     assert payload["available_methods"] == ["ears", "cusum", "farrington", "glm"]
+    assert payload["parity_status"]["ears"]["golden_fixtures"] == [
+        "ears_c1_known_series_r_output.csv",
+        "ears_c2_known_series_r_output.csv",
+        "ears_c3_known_series_r_output.csv",
+    ]
+    assert payload["parity_status"]["cusum"]["golden_fixtures"] == ["cusum_known_series_r_output.csv"]
     assert payload["parity_status"]["farrington"]["status"] == "available_via_r_bridge"
     assert payload["parity_status"]["glm"]["r_method"] == "glm mean"
+    all_fixtures = [
+        fixture
+        for method in payload["parity_status"].values()
+        for fixture in method["golden_fixtures"]
+    ]
+    assert sorted(all_fixtures) == sorted(
+        [
+            "cusum_known_series_r_output.csv",
+            "ears_c1_known_series_r_output.csv",
+            "ears_c2_known_series_r_output.csv",
+            "ears_c3_known_series_r_output.csv",
+            "farrington_tail_known_series_r_output.csv",
+            "glm_mean_tail_known_series_r_output.csv",
+        ]
+    )
 
 
 def test_root_redirects_to_ui() -> None:

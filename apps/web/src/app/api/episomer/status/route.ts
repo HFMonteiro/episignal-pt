@@ -14,53 +14,46 @@ function flagEnabled(name: string): boolean {
 
 export async function GET() {
   const rWorkerUrl = process.env.EPISOMER_R_WORKER_URL?.trim() || null;
+
   const checks: EpisomerSetupCheck[] = [
     {
+      key: "rss_sources",
+      label: "Fontes RSS públicas",
+      ready: true,
+      detail: "Google News RSS está ativo para recolha curta de evidência pública aberta."
+    },
+    {
       key: "r_worker",
-      label: "R worker endpoint",
+      label: "Worker R (opcional)",
       ready: Boolean(rWorkerUrl),
-      detail: rWorkerUrl ? "Configured server-side" : "Set EPISOMER_R_WORKER_URL"
-    },
-    {
-      key: "episomer_package",
-      label: "Episomer R package",
-      ready: flagEnabled("EPISOMER_PACKAGE_READY"),
-      detail: "Install with install.packages('episomer', repos = c('https://eu-ecdc.r-universe.dev', 'https://cloud.r-project.org'))"
-    },
-    {
-      key: "bluesky_credentials",
-      label: "Bluesky credentials",
-      ready: isSet("BLUESKY_IDENTIFIER") && isSet("BLUESKY_APP_PASSWORD"),
-      detail: "Set BLUESKY_IDENTIFIER and BLUESKY_APP_PASSWORD in server environment only"
+      detail: rWorkerUrl ? "Configurado para extensão futura" : "Não configurado; não necessário para o modo RSS"
     },
     {
       key: "topic_config",
-      label: "Topic and keyword plan",
+      label: "Plano de tópicos",
       ready: isSet("EPISOMER_TOPIC_CONFIG_PATH"),
-      detail: "Set EPISOMER_TOPIC_CONFIG_PATH to the reviewed topic/keyword configuration"
+      detail: "Set EPISOMER_TOPIC_CONFIG_PATH para a configuração de tópicos por ambiente"
     }
   ];
 
   const governance: EpisomerGovernanceCheck[] = [
-    { key: "data_protection_basis", label: "Data protection basis documented", ready: flagEnabled("EPISOMER_GOV_DATA_PROTECTION_BASIS") },
-    { key: "retention_policy", label: "Retention/deletion policy approved", ready: flagEnabled("EPISOMER_GOV_RETENTION_POLICY") },
-    { key: "human_review", label: "Human review workflow assigned", ready: flagEnabled("EPISOMER_GOV_HUMAN_REVIEW") },
-    { key: "audit_log", label: "Audit logging enabled", ready: flagEnabled("EPISOMER_GOV_AUDIT_LOG") }
+    { key: "data_protection_basis", label: "Base legal de proteção de dados documentada", ready: flagEnabled("EPISOMER_GOV_DATA_PROTECTION_BASIS") },
+    { key: "retention_policy", label: "Política de retenção/eliminação aprovada", ready: flagEnabled("EPISOMER_GOV_RETENTION_POLICY") },
+    { key: "human_review", label: "Fluxo de revisão humana atribuído", ready: flagEnabled("EPISOMER_GOV_HUMAN_REVIEW") },
+    { key: "audit_log", label: "Registo de auditoria ativo", ready: flagEnabled("EPISOMER_GOV_AUDIT_LOG") }
   ];
 
-  const requiredReady = checks.every((check) => check.ready);
+  const requiredReady = checks.filter((check) => check.key !== "r_worker").every((check) => check.ready);
   const governanceReady = governance.every((check) => check.ready);
+
   const response: EpisomerStatusResponse = {
-    worker_status: requiredReady && governanceReady ? "ready" : checks.some((check) => check.ready) || governance.some((check) => check.ready) ? "partial" : "offline",
-    source_mode: requiredReady && governanceReady ? "episomer_bluesky" : rWorkerUrl ? "open_news_only" : "demo",
+    worker_status: requiredReady && governanceReady ? "ready" : "partial",
+    source_mode: "open_news_only",
     r_worker_url: rWorkerUrl,
     checks,
     governance,
     required_env: [
       "EPISOMER_R_WORKER_URL",
-      "EPISOMER_PACKAGE_READY",
-      "BLUESKY_IDENTIFIER",
-      "BLUESKY_APP_PASSWORD",
       "EPISOMER_TOPIC_CONFIG_PATH",
       "EPISOMER_GOV_DATA_PROTECTION_BASIS",
       "EPISOMER_GOV_RETENTION_POLICY",

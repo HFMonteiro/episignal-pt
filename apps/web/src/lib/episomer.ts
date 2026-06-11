@@ -9,7 +9,7 @@ export type EpisomerAggregate = {
   threshold: number;
   alert: boolean;
   review_status: EpisomerReviewStatus;
-  source: "Bluesky" | "Demo" | "OpenNews";
+  source: "Demo" | "OpenNews";
   geolocation_quality: "high" | "medium" | "low";
   signal_score: number;
 };
@@ -25,7 +25,7 @@ export type EpisomerLiveArticle = {
 
 export type EpisomerLiveResponse = {
   mode: "open_news_live";
-  source: "GDELT" | "GoogleNewsRSS" | "MixedOpenNews";
+  source: "GoogleNewsRSS";
   topic: string;
   query: string;
   seconds_requested: number;
@@ -51,7 +51,7 @@ export type EpisomerGovernanceCheck = {
 
 export type EpisomerStatusResponse = {
   worker_status: "ready" | "partial" | "offline";
-  source_mode: "episomer_bluesky" | "open_news_only" | "demo";
+  source_mode: "open_news_only" | "demo";
   r_worker_url: string | null;
   checks: EpisomerSetupCheck[];
   governance: EpisomerGovernanceCheck[];
@@ -120,7 +120,7 @@ export const episomerSchema: EpisomerField[] = [
     field: "source",
     type: "enum",
     required: true,
-    definition: "Social source or demo source used for the aggregate."
+    definition: "Collection source used to generate the aggregate."
   },
   {
     field: "geolocation_quality",
@@ -168,7 +168,7 @@ export function episomerAggregatesToJson(rows: EpisomerAggregate[]): string {
       worker_status: "offline",
       live_collection: false,
       contract: "topic/location/date/posts_observed/posts_expected/threshold/alert/review_status",
-      note: "Synthetic aggregates only. No live social media, news, raw posts or personal data are included.",
+      note: "Synthetic aggregates only. Open-news RSS collection is optional, and no raw article contents or personal data are stored in the browser.",
       rows
     },
     null,

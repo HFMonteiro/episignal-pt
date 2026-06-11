@@ -907,10 +907,6 @@
 }
 
 .sensitivityLine {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: baseline;
   border-top: 1px solid #d8e0eb;
   background: #f8fafc;
   color: #344054;
@@ -919,14 +915,59 @@
   line-height: 1.45;
 }
 
+.sensitivityLine summary {
+  cursor: pointer;
+  list-style-position: outside;
+  color: #172033;
+}
+
 .sensitivityLine strong {
   color: #172033;
   font-weight: 900;
 }
 
+.sensitivityLine b {
+  color: #7a4c00;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
 .sensitivityLine em {
+  display: block;
+  margin-top: 7px;
   color: #667085;
   font-style: normal;
+}
+
+.sensitivityLine p {
+  margin: 8px 0;
+}
+
+.sensitivityTableWrap {
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.sensitivityTableWrap table {
+  width: 100%;
+  min-width: 680px;
+  border-collapse: collapse;
+  background: #ffffff;
+  border: 1px solid #d8e0eb;
+}
+
+.sensitivityTableWrap th,
+.sensitivityTableWrap td {
+  padding: 7px 9px;
+  border-bottom: 1px solid #e6edf4;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.sensitivityTableWrap th {
+  color: #475467;
+  font-size: 11px;
+  text-transform: uppercase;
 }
 
 .detectionBand {

@@ -43,8 +43,15 @@ type SensitivityProfile = {
   label: string;
   sensitivity: number | null;
   specificity: number | null;
+  positivePredictiveValue: number | null;
+  negativePredictiveValue: number | null;
   alarms: number;
   trueSignalWeeks: number;
+  truePositive: number;
+  falsePositive: number;
+  trueNegative: number;
+  falseNegative: number;
+  evidenceMode: "proxy" | "method_output";
 };
 
 const PORTUGAL_MAP_VIEWBOX = { width: 379.499, height: 547.489 };
@@ -172,7 +179,14 @@ const copy = {
       bestSensitive: "mais sensível",
       bestSpecific: "mais específico",
       unavailable: "Sem referência de surto nos dados filtrados; não é possível estimar sensibilidade/especificidade.",
-      note: "Estimativa apenas para a amostra sintética, usando outbreak_status como referência."
+      ppv: "VPP",
+      npv: "VPN",
+      proxy: "proxy",
+      alarms: "alarmes",
+      matrix: "matriz",
+      opportunity: "Oportunidade de melhoria",
+      note: "Comparação exploratória no sample sintético: usa outbreak_status como referência e perfis aproximados até existirem outputs reais de cada método.",
+      improvement: "Próximo passo analítico: correr os quatro métodos reais contra fixtures R e cenários sintéticos separados (surto abrupto, subida gradual, ruído, atraso de reporte e baixa contagem)."
     },
     mapDrilldown: {
       districtTitle: "Casos por distrito",
@@ -327,7 +341,14 @@ const copy = {
       bestSensitive: "most sensitive",
       bestSpecific: "most specific",
       unavailable: "No outbreak reference in the filtered data; sensitivity/specificity cannot be estimated.",
-      note: "Estimate for the synthetic sample only, using outbreak_status as reference."
+      ppv: "PPV",
+      npv: "NPV",
+      proxy: "proxy",
+      alarms: "alarms",
+      matrix: "matrix",
+      opportunity: "Improvement opportunity",
+      note: "Exploratory comparison on the synthetic sample: uses outbreak_status as reference and approximate method profiles until real method outputs are available.",
+      improvement: "Next analytical step: run the four real methods against R fixtures and separate synthetic scenarios (abrupt outbreak, gradual rise, noise, reporting delay and low counts)."
     },
     mapDrilldown: {
       districtTitle: "Cases by district",
@@ -575,16 +596,29 @@ function evaluateMethodProfiles(
 
     const sensitivityDenominator = truePositive + falseNegative;
     const specificityDenominator = trueNegative + falsePositive;
+    const ppvDenominator = truePositive + falsePositive;
+    const npvDenominator = trueNegative + falseNegative;
 
     return {
       method: profile.method,
       label: methodLabel(profile.method),
       sensitivity: sensitivityDenominator > 0 ? truePositive / sensitivityDenominator : null,
       specificity: specificityDenominator > 0 ? trueNegative / specificityDenominator : null,
+      positivePredictiveValue: ppvDenominator > 0 ? truePositive / ppvDenominator : null,
+      negativePredictiveValue: npvDenominator > 0 ? trueNegative / npvDenominator : null,
       alarms: evaluationRows.filter((row) => row.alarm).length,
-      trueSignalWeeks: sensitivityDenominator
+      trueSignalWeeks: sensitivityDenominator,
+      truePositive,
+      falsePositive,
+      trueNegative,
+      falseNegative,
+      evidenceMode: "proxy"
     };
   });
+}
+
+function formatPercent(value: number | null): string {
+  return value === null ? "n/a" : `${Math.round(value * 100)}%`;
 }
 
 function bestProfile(profiles: SensitivityProfile[], metric: "sensitivity" | "specificity"): SensitivityProfile | null {
@@ -1533,18 +1567,52 @@ function TimeSeriesChart({
         <span>{isPt ? "Esperado mais recente" : "Latest expected"}: {latest?.expected === null || latest?.expected === undefined ? "n/a" : latest.expected.toFixed(1)}</span>
         <span>{isPt ? "Limite superior mais recente" : "Latest upper bound"}: {latest?.upperbound === null || latest?.upperbound === undefined ? "n/a" : latest.upperbound.toFixed(1)}</span>
       </div>
-      <div className={styles.sensitivityLine}>
-        <strong>{sensitivityCopy.title}</strong>
+      <details className={styles.sensitivityLine}>
+        <summary>
+          <strong>{sensitivityCopy.title}</strong>
+        </summary>
         {mostSensitive && mostSpecific ? (
-          <span>
-            {sensitivityCopy.bestSensitive}: {mostSensitive.label} ({Math.round((mostSensitive.sensitivity ?? 0) * 100)}%);
-            {" "}{sensitivityCopy.bestSpecific}: {mostSpecific.label} ({Math.round((mostSpecific.specificity ?? 0) * 100)}%).
-            {" "}<em>{sensitivityCopy.note}</em>
-          </span>
+          <>
+            <p>
+              {sensitivityCopy.bestSensitive}: {mostSensitive.label} ({formatPercent(mostSensitive.sensitivity)}).{" "}
+              {sensitivityCopy.bestSpecific}: {mostSpecific.label} ({formatPercent(mostSpecific.specificity)}).{" "}
+              <b>{sensitivityCopy.proxy}</b>.
+            </p>
+            <div className={styles.sensitivityTableWrap}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>{isPt ? "Método" : "Method"}</th>
+                    <th>{isPt ? "Sens." : "Sens."}</th>
+                    <th>{isPt ? "Esp." : "Spec."}</th>
+                    <th>{sensitivityCopy.ppv}</th>
+                    <th>{sensitivityCopy.npv}</th>
+                    <th>{sensitivityCopy.alarms}</th>
+                    <th>{sensitivityCopy.matrix}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sensitivityProfiles.map((profile) => (
+                    <tr key={profile.method}>
+                      <td>{profile.label}</td>
+                      <td>{formatPercent(profile.sensitivity)}</td>
+                      <td>{formatPercent(profile.specificity)}</td>
+                      <td>{formatPercent(profile.positivePredictiveValue)}</td>
+                      <td>{formatPercent(profile.negativePredictiveValue)}</td>
+                      <td>{profile.alarms}</td>
+                      <td>TP {profile.truePositive} / FP {profile.falsePositive} / TN {profile.trueNegative} / FN {profile.falseNegative}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <em>{sensitivityCopy.note}</em>
+            <em><strong>{sensitivityCopy.opportunity}:</strong> {sensitivityCopy.improvement}</em>
+          </>
         ) : (
           <span>{sensitivityCopy.unavailable}</span>
         )}
-      </div>
+      </details>
       <svg className={styles.timeChart} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={isPt ? "Casos semanais, alarmes e limite superior" : "Weekly cases, alarms and upper threshold"}>
         <rect className={styles.detectionBand} x={detectionX} y={pad.top} width={detectionWidth} height={plotHeight} />
         {[0, 0.25, 0.5, 0.75, 1].map((tick) => {

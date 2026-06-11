@@ -6,12 +6,23 @@ This document defines the minimum standard before this project can claim parity 
 
 | Method | Current runtime | Status | Operational use |
 | --- | --- | --- | --- |
-| EARS | Python prototype | Implemented, not parity-tested | No |
-| CUSUM | Python prototype | Implemented, not parity-tested | No |
-| FarringtonFlexible | R bridge required | Executed through the local R bridge | Yes, via golden fixtures |
-| GLM | R bridge required | Executed through the local R bridge | Yes, via golden fixtures |
+| EARS | Python prototype | Known-series R fixtures for C1/C2/C3 | No |
+| CUSUM | Python prototype | Known-series R fixture | No |
+| FarringtonFlexible | R bridge required | Tail known-series R fixture | Yes, via R bridge |
+| GLM | R bridge required | GLM mean tail known-series R fixture | Yes, via R bridge |
 
-The frontend may display all methods when enough historical weeks are available. EARS and CUSUM remain the native Python worker candidates; FarringtonFlexible and GLM are now delegated to the local R bridge and must continue to match the approved golden tests.
+The frontend may display all methods when enough historical weeks are available. EARS and CUSUM remain native Python worker candidates with known-series fixture checks only. FarringtonFlexible and GLM are delegated to the local R bridge and must continue to match the approved golden tests.
+
+## Golden fixtures currently present
+
+| Method | Fixture coverage | Fixture file |
+| --- | --- | --- |
+| CUSUM | Reset known-series R output | `migration/python-worker/tests/fixtures/cusum_known_series_r_output.csv` |
+| EARS C1 | Known-series R output | `migration/python-worker/tests/fixtures/ears_c1_known_series_r_output.csv` |
+| EARS C2 | Known-series R output | `migration/python-worker/tests/fixtures/ears_c2_known_series_r_output.csv` |
+| EARS C3 | Known-series R output | `migration/python-worker/tests/fixtures/ears_c3_known_series_r_output.csv` |
+| FarringtonFlexible | Tail known-series R output | `migration/python-worker/tests/fixtures/farrington_tail_known_series_r_output.csv` |
+| GLM mean | Tail known-series R output | `migration/python-worker/tests/fixtures/glm_mean_tail_known_series_r_output.csv` |
 
 ## Golden test datasets
 

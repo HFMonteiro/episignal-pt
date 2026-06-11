@@ -35,8 +35,8 @@ const copy = {
     eyebrow: "Episomer preview",
     title: "Sinais digitais agregados para revisão epidemiológica",
     intro:
-      "Esta página é uma pré-visualização da integração com Episomer. A versão real deve correr num worker R separado, recolher sinais sociais por tópico e devolver apenas agregados por território e período. Esta app não recolhe posts, notícias ou dados pessoais.",
-    badges: ["Demo, não live", "Contrato de dados agregado", "Separado da line-list clínica", "Preparado para worker R"],
+      "Esta página é uma pré-visualização da integração com Episomer. A versão real integra sinais epidemiológicos digitais por tópicos e devolve apenas agregados por território e período. Esta app não recolhe dados pessoais.",
+    badges: ["Amostra demonstrativa", "Contrato de dados agregado", "Separado da line-list clínica", "Modo RSS público"],
     topic: "Tópico",
     liveTopic: "Tópico/keywords live",
     liveTopicPlaceholder: "ex.: measles OR sarampo OR outbreak",
@@ -50,18 +50,23 @@ const copy = {
     liveFallback: "Ainda sem recolha live nesta sessão.",
     statusTitle: "Estado da integração",
     status: "Estado técnico",
-    statusDetail: "A visualização abaixo começa com agregados sintéticos. O botão live executa uma recolha curta de notícias abertas; o modo Episomer social-media real requer worker R, APIs sociais e governação explícita.",
+    statusDetail: "A visualização abaixo começa com agregados sintéticos. O botão live executa uma recolha curta de RSS públicos; esta implementação é uma pré-visualização e não recolhe dados pessoais.",
     setupChecks: "Instalação e credenciais",
     governanceChecks: "Governação explícita",
     statusLoading: "A verificar configuração...",
     statusError: "Não foi possível ler o estado da configuração.",
     sourceMode: "Origem dos sinais",
     sourceModeValue: "Amostra demonstrativa",
-    sourceModeLive: "Live: Bluesky/social APIs via worker R",
+    sourceModeLive: "Live: RSS público no servidor",
+    sourceModeDemo: "Amostra demonstrativa",
+    workerModeReady: "R worker do Episomer disponível",
+    workerModeOff: "R worker do Episomer não configurado (opcional)",
+    workerModeConfigured: "EPISOMER_R_WORKER_URL configurado",
+    workerModePlanned: "Sem worker R configurado",
     modelTitle: "Arquitetura alvo",
     model: [
-      "Episomer recolhe posts por tópicos/keywords e calcula agregados no ambiente R.",
-      "O worker expõe apenas contagens, esperado, limiar, alerta e metadados de execução.",
+      "Episomer recolhe eventos por tópicos/keywords em feeds e calcula agregados por área e período.",
+      "O worker expõe apenas contagens, expectativa, limiar, alerta e metadados de execução.",
       "O frontend apresenta os sinais como fila de revisão, sem os converter em casos ou incidência.",
       "A equipa de vigilância valida, contextualiza e decide observar, escalar ou descartar."
     ],
@@ -78,22 +83,22 @@ const copy = {
     schemaTitle: "Contrato de dados esperado",
     liveTitle: "Modo live proposto",
     liveItems: [
-      "POST /episomer/search: tópico, keywords, território, janela temporal e fonte social.",
-      "GET /episomer/status: disponibilidade do R/Episomer, última execução e erros operacionais.",
+      "POST /episomer/search: tópico, keywords e parâmetros de janela temporal quando o worker futuro estiver disponível.",
+      "GET /episomer/status: estado do serviço, política de governação e último estado operativo.",
       "POST /episomer/aggregate: devolve apenas agregados revistos para o dashboard.",
-      "Sem raw posts no browser; retenção, anonimização e eliminação ficam no worker."
+      "Sem conteúdos brutos na interface; retenção, anonimização e eliminação ficam no backend."
     ],
     sourcesTitle: "Fontes e licença",
     empty: "Sem agregados para os filtros atuais.",
     note:
-      "Amostra demonstrativa. Episomer é social media epidemic intelligence; notícias abertas/EIOS seriam outro conector e devem ter contrato e governação próprios."
+      "Amostra demonstrativa. Episomer trata sinais digitais agregados; notícias abertas e RSS têm contratos e governação específicos."
   },
   en: {
     eyebrow: "Episomer preview",
     title: "Aggregated digital signals for epidemiological review",
     intro:
-      "This page previews the Episomer integration. The real version should run in a separate R worker, collect social signals by topic and return aggregates by territory and period only. This app does not collect posts, news or personal data.",
-    badges: ["Demo, not live", "Aggregate data contract", "Separate from clinical line-list", "Ready for an R worker"],
+      "This page previews the Episomer integration. The real version should run in a separate R worker, collect digital signals by topic, and return only aggregated counts by territory and period. This app does not collect personal data.",
+    badges: ["Demonstration sample", "Aggregate data contract", "Separate from clinical line-list", "Public RSS mode"],
     topic: "Topic",
     liveTopic: "Live topic/keywords",
     liveTopicPlaceholder: "e.g. measles OR outbreak OR pertussis",
@@ -107,17 +112,22 @@ const copy = {
     liveFallback: "No live collection in this session yet.",
     statusTitle: "Integration status",
     status: "Technical status",
-    statusDetail: "The view below starts with synthetic aggregates. The live button runs a short open-news collection; real Episomer social-media mode requires an R worker, social APIs and explicit governance.",
+    statusDetail: "The view below starts with synthetic aggregates. The live button runs a short open-news collection from public RSS; no personal data is collected in this preview.",
     setupChecks: "Installation and credentials",
     governanceChecks: "Explicit governance",
     statusLoading: "Checking configuration...",
     statusError: "Could not read configuration status.",
     sourceMode: "Signal source",
     sourceModeValue: "Demonstration sample",
-    sourceModeLive: "Live: Bluesky/social APIs via R worker",
+    sourceModeLive: "Live: Public RSS via server endpoint",
+    sourceModeDemo: "Demonstration sample",
+    workerModeReady: "R/Episomer worker is available",
+    workerModeOff: "R/Episomer worker not configured (optional)",
+    workerModeConfigured: "EPISOMER_R_WORKER_URL configured",
+    workerModePlanned: "No R worker configured",
     modelTitle: "Target architecture",
     model: [
-      "Episomer collects posts by topics/keywords and calculates aggregates in the R environment.",
+      "Episomer collects digital signals by topics/keywords and calculates aggregates in the R environment.",
       "The worker exposes only counts, expected volume, threshold, alert status and run metadata.",
       "The frontend presents signals as a review queue without turning them into cases or incidence.",
       "The surveillance team validates, contextualises and decides whether to watch, escalate or dismiss."
@@ -135,15 +145,15 @@ const copy = {
     schemaTitle: "Expected data contract",
     liveTitle: "Proposed live mode",
     liveItems: [
-      "POST /episomer/search: topic, keywords, territory, time window and social source.",
+      "POST /episomer/search: topic, keywords and time window when the optional worker is enabled.",
       "GET /episomer/status: R/Episomer availability, latest run and operational errors.",
-      "POST /episomer/aggregate: returns reviewed aggregates only for the dashboard.",
-      "No raw posts in the browser; retention, anonymisation and deletion stay in the worker."
+      "POST /episomer/aggregate: when enabled, returns reviewed aggregates only for the dashboard.",
+      "Only aggregate outputs are shown in the interface; collected article content is not displayed and not persisted."
     ],
     sourcesTitle: "Sources and licence",
     empty: "No aggregates for the current filters.",
     note:
-      "Demonstration sample. Episomer is social media epidemic intelligence; open news/EIOS would be a separate connector with its own contract and governance."
+      "Demonstration sample. Episomer uses aggregated digital signals; open-news RSS is a separate connector with its own contract and governance."
   },
 } as const;
 
@@ -186,6 +196,10 @@ function EpisomerContent() {
   );
   const summary = useMemo(() => summarizeEpisomerAggregates(rows), [rows]);
   const chartMax = Math.max(1, ...rows.map((row) => Math.max(row.posts_observed, row.threshold)));
+
+  const sourceModeLabel = status?.source_mode === "demo" ? t.sourceModeDemo : t.sourceModeLive;
+  const workerModeLabel = status?.r_worker_url ? t.workerModeReady : t.workerModeOff;
+  const workerModeSource = status?.r_worker_url ? t.workerModeConfigured : t.workerModePlanned;
 
   useEffect(() => {
     let ignore = false;
@@ -265,12 +279,12 @@ function EpisomerContent() {
                   <small>{t.status}</small>
                 </span>
                 <span>
-                  <strong>{status?.source_mode ?? t.sourceModeValue}</strong>
+                  <strong>{status ? sourceModeLabel : t.sourceModeValue}</strong>
                   <small>{t.sourceMode}</small>
                 </span>
                 <span>
-                  <strong>{status?.r_worker_url ? "server-side endpoint configured" : t.sourceModeLive}</strong>
-                  <small>{status?.r_worker_url ? "EPISOMER_R_WORKER_URL" : "planned_mode"}</small>
+                  <strong>{status ? workerModeLabel : t.workerModeOff}</strong>
+                  <small>{status?.r_worker_url ? t.workerModeConfigured : workerModeSource}</small>
                 </span>
               </div>
               {statusError ? <p className={styles.alert}>{t.statusError}</p> : null}

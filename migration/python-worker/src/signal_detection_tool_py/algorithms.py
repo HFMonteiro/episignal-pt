@@ -23,14 +23,16 @@ METHOD_PARITY_STATUS: dict[str, dict[str, object]] = {
             "ears_c2_known_series_r_output.csv",
             "ears_c3_known_series_r_output.csv",
         ],
-        "notes": "Native Python EARS detector aligned with SignalDetectionTool's surveillance::earsC wrapper. Golden fixture coverage is partial.",
+        "fixture_coverage": "EARS C1, C2 and C3 known-series R outputs",
+        "notes": "Native Python EARS detector aligned with SignalDetectionTool's surveillance::earsC wrapper. Fixtures cover known series only; broader operational parity is still pending.",
     },
     "cusum": {
         "runtime": "python",
         "status": "prototype",
         "parity": "pending_golden_tests",
         "golden_fixtures": ["cusum_known_series_r_output.csv"],
-        "notes": "Native Python CUSUM candidate aligned with the R reset variant and standard transformation. Golden fixtures are still required before operational use.",
+        "fixture_coverage": "CUSUM reset known-series R output",
+        "notes": "Native Python CUSUM candidate aligned with the R reset variant and standard transformation. Fixtures cover known series only; broader operational parity is still pending.",
     },
     "farrington": {
         "runtime": "r_worker_required",
@@ -38,6 +40,7 @@ METHOD_PARITY_STATUS: dict[str, dict[str, object]] = {
         "parity": "golden_fixture_supported",
         "r_method": "farrington",
         "golden_fixtures": ["farrington_tail_known_series_r_output.csv"],
+        "fixture_coverage": "FarringtonFlexible tail known-series R output",
         "notes": "Executed through the local R bridge and the installed SignalDetectionTool package. This is not a native Python port.",
     },
     "glm": {
@@ -46,6 +49,7 @@ METHOD_PARITY_STATUS: dict[str, dict[str, object]] = {
         "parity": "golden_fixture_supported",
         "r_method": "glm mean",
         "golden_fixtures": ["glm_mean_tail_known_series_r_output.csv"],
+        "fixture_coverage": "GLM mean tail known-series R output",
         "notes": "Executed through the local R bridge using the default GLM mean model in the installed SignalDetectionTool package.",
     },
 }
