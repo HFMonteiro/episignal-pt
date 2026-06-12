@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import type { EpisomerGovernanceCheck, EpisomerSetupCheck, EpisomerStatusResponse } from "@/lib/episomer";
+import type { EpisomerGovernanceCheck, EpisomerReadinessState, EpisomerSetupCheck, EpisomerStatusResponse } from "@/lib/episomer";
+import { resolveEpisomerReadiness } from "@/lib/episomerStatus";
 
 export const dynamic = "force-dynamic";
 
@@ -45,10 +46,17 @@ export async function GET() {
 
   const requiredReady = checks.filter((check) => check.key !== "r_worker").every((check) => check.ready);
   const governanceReady = governance.every((check) => check.ready);
+  const readinessState: EpisomerReadinessState = resolveEpisomerReadiness({
+    rssReady: checks.some((check) => check.key === "rss_sources" && check.ready),
+    topicConfigReady: checks.some((check) => check.key === "topic_config" && check.ready),
+    rWorkerReady: Boolean(rWorkerUrl),
+    governanceReady
+  });
 
   const response: EpisomerStatusResponse = {
-    worker_status: requiredReady && governanceReady ? "ready" : "partial",
+    worker_status: readinessState === "production_ready" ? "ready" : "partial",
     source_mode: "open_news_only",
+    readiness_state: readinessState,
     r_worker_url: rWorkerUrl,
     checks,
     governance,

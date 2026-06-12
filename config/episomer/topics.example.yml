@@ -3,12 +3,22 @@
 topics:
   - id: measles
     label: Measles / Sarampo
-    keywords:
+    aliases:
+      pt:
+        - sarampo
+      en:
+        - measles
+    include_terms:
       - measles
       - sarampo
       - outbreak
       - vaccine
       - rash fever
+    exclude_terms:
+      - celebrity
+      - football
+      - gaming
+    expected_territory: Portugal
     geography:
       countries:
         - Portugal
@@ -17,25 +27,52 @@ topics:
         - Porto
         - Faro
     review_priority: high
+    owner: public-health-intelligence
+    reviewer: epidemiology-duty-officer
   - id: pertussis
     label: Pertussis / Tosse convulsa
-    keywords:
+    aliases:
+      pt:
+        - tosse convulsa
+      en:
+        - pertussis
+        - whooping cough
+    include_terms:
       - pertussis
       - whooping cough
       - tosse convulsa
       - outbreak
+    exclude_terms:
+      - animal
+      - veterinary
+    expected_territory: Portugal
     geography:
       countries:
         - Portugal
     review_priority: high
+    owner: public-health-intelligence
+    reviewer: epidemiology-duty-officer
   - id: respiratory
     label: Respiratory syndromes
-    keywords:
+    aliases:
+      pt:
+        - sintomas respiratorios
+        - surto respiratorio
+      en:
+        - respiratory syndromes
+        - respiratory outbreak
+    include_terms:
       - respiratory outbreak
       - pneumonia cluster
       - influenza outbreak
       - covid surge
+    exclude_terms:
+      - market report
+      - sports
+    expected_territory: Portugal
     geography:
       countries:
         - Portugal
     review_priority: medium
+    owner: public-health-intelligence
+    reviewer: epidemiology-duty-officer

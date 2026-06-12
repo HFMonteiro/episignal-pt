@@ -36,9 +36,12 @@ Current behavior:
 - return:
   - synthetic-like aggregates (`posts_observed`, `posts_expected`, `threshold`, `alert`),
   - a short list of article metadata (`title`, `source_domain`, `language`, `url`, `seen_at`),
+  - collection metadata (`fetched_at`, `total_items`, `unique_items`, `duplicate_items`, `rss_status`, `empty_reason`),
   - a warning line documenting that this is RSS preview data.
 
 No data persists by default.
+
+`posts_expected` and `threshold` in RSS preview mode are approximate review triggers only. They are not validated epidemiological thresholds and must not be used as outbreak confirmation.
 
 ## Aggregate contract expected by frontend
 
@@ -55,6 +58,7 @@ The frontend works with aggregated rows, not raw article payloads:
 | `alert` | Observed >= threshold |
 | `review_status` | `new`, `watch`, `escalated`, `dismissed` |
 | `source` | `Demo` or `OpenNews` |
+| `evidence_mode` | `demo`, `rss_preview` or future `worker_output` |
 | `geolocation_quality` | Confidence tier |
 | `signal_score` | Sort score for review workload |
 
@@ -95,9 +99,16 @@ Returns:
 
 - `worker_status`: `ready`, `partial`, `offline` (based on checks);
 - `source_mode`: now `open_news_only` for this repository configuration;
+- `readiness_state`: `demo_ready`, `preview_ready`, `production_blocked` or `production_ready`;
 - checks for RSS source, optional worker, topic config and governance;
 - `r_worker_url` when configured;
 - `updated_at`, `secrets_redacted: true` and required env list.
+
+Readiness states are intentionally stricter than endpoint availability:
+
+- `preview_ready`: RSS preview is usable for demonstrations.
+- `production_blocked`: a worker may be configured, but governance/topic/retention/audit checks are incomplete.
+- `production_ready`: worker, topic configuration and governance gates are all explicitly ready.
 
 ## Governance note
 

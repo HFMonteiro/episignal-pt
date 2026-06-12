@@ -1,4 +1,6 @@
 export type EpisomerReviewStatus = "new" | "watch" | "escalated" | "dismissed";
+export type EpisomerEvidenceMode = "demo" | "rss_preview" | "worker_output";
+export type EpisomerReadinessState = "demo_ready" | "preview_ready" | "production_blocked" | "production_ready";
 
 export type EpisomerAggregate = {
   topic: string;
@@ -10,6 +12,7 @@ export type EpisomerAggregate = {
   alert: boolean;
   review_status: EpisomerReviewStatus;
   source: "Demo" | "OpenNews";
+  evidence_mode: EpisomerEvidenceMode;
   geolocation_quality: "high" | "medium" | "low";
   signal_score: number;
 };
@@ -26,8 +29,14 @@ export type EpisomerLiveArticle = {
 export type EpisomerLiveResponse = {
   mode: "open_news_live";
   source: "GoogleNewsRSS";
+  fetched_at: string;
   topic: string;
   query: string;
+  total_items: number;
+  unique_items: number;
+  duplicate_items: number;
+  empty_reason: string | null;
+  rss_status: "ok" | "empty" | "error";
   seconds_requested: number;
   seconds_elapsed: number;
   generated_at: string;
@@ -52,6 +61,7 @@ export type EpisomerGovernanceCheck = {
 export type EpisomerStatusResponse = {
   worker_status: "ready" | "partial" | "offline";
   source_mode: "open_news_only" | "demo";
+  readiness_state: EpisomerReadinessState;
   r_worker_url: string | null;
   checks: EpisomerSetupCheck[];
   governance: EpisomerGovernanceCheck[];
@@ -96,13 +106,13 @@ export const episomerSchema: EpisomerField[] = [
     field: "posts_expected",
     type: "number",
     required: true,
-    definition: "Expected post volume from the digital signal model."
+    definition: "Expected post volume. In RSS preview mode this is an approximate baseline, not a validated epidemiological threshold."
   },
   {
     field: "threshold",
     type: "number",
     required: true,
-    definition: "Upper alert threshold for the selected topic, place and period."
+    definition: "Upper alert threshold. In RSS preview mode this is an approximate review trigger, not an operational outbreak threshold."
   },
   {
     field: "alert",
@@ -123,6 +133,12 @@ export const episomerSchema: EpisomerField[] = [
     definition: "Collection source used to generate the aggregate."
   },
   {
+    field: "evidence_mode",
+    type: "enum",
+    required: true,
+    definition: "Evidence tier: demo, rss_preview or worker_output. Only worker_output can represent a future validated backend."
+  },
+  {
     field: "geolocation_quality",
     type: "enum",
     required: true,
@@ -137,15 +153,15 @@ export const episomerSchema: EpisomerField[] = [
 ];
 
 export const episomerDemoAggregates: EpisomerAggregate[] = [
-  { topic: "Pertussis", location: "Porto", date: "2024-03-04", posts_observed: 22, posts_expected: 12, threshold: 19, alert: true, review_status: "watch", source: "Demo", geolocation_quality: "high", signal_score: 0.78 },
-  { topic: "Pertussis", location: "Porto", date: "2024-03-11", posts_observed: 34, posts_expected: 13, threshold: 20, alert: true, review_status: "escalated", source: "Demo", geolocation_quality: "high", signal_score: 0.91 },
-  { topic: "Pertussis", location: "Lisboa", date: "2024-03-11", posts_observed: 18, posts_expected: 15, threshold: 24, alert: false, review_status: "watch", source: "Demo", geolocation_quality: "medium", signal_score: 0.42 },
-  { topic: "Pertussis", location: "Coimbra", date: "2024-03-11", posts_observed: 9, posts_expected: 8, threshold: 15, alert: false, review_status: "new", source: "Demo", geolocation_quality: "medium", signal_score: 0.25 },
-  { topic: "Measles", location: "Faro", date: "2024-03-04", posts_observed: 14, posts_expected: 6, threshold: 11, alert: true, review_status: "watch", source: "Demo", geolocation_quality: "high", signal_score: 0.83 },
-  { topic: "Measles", location: "Faro", date: "2024-03-11", posts_observed: 21, posts_expected: 7, threshold: 12, alert: true, review_status: "escalated", source: "Demo", geolocation_quality: "high", signal_score: 0.94 },
-  { topic: "Measles", location: "Beja", date: "2024-03-11", posts_observed: 6, posts_expected: 5, threshold: 10, alert: false, review_status: "new", source: "Demo", geolocation_quality: "low", signal_score: 0.18 },
-  { topic: "Respiratory symptoms", location: "Lisboa", date: "2024-03-04", posts_observed: 47, posts_expected: 41, threshold: 62, alert: false, review_status: "new", source: "Demo", geolocation_quality: "medium", signal_score: 0.33 },
-  { topic: "Respiratory symptoms", location: "Porto", date: "2024-03-11", posts_observed: 58, posts_expected: 45, threshold: 67, alert: false, review_status: "watch", source: "Demo", geolocation_quality: "medium", signal_score: 0.46 }
+  { topic: "Pertussis", location: "Porto", date: "2024-03-04", posts_observed: 22, posts_expected: 12, threshold: 19, alert: true, review_status: "watch", source: "Demo", evidence_mode: "demo", geolocation_quality: "high", signal_score: 0.78 },
+  { topic: "Pertussis", location: "Porto", date: "2024-03-11", posts_observed: 34, posts_expected: 13, threshold: 20, alert: true, review_status: "escalated", source: "Demo", evidence_mode: "demo", geolocation_quality: "high", signal_score: 0.91 },
+  { topic: "Pertussis", location: "Lisboa", date: "2024-03-11", posts_observed: 18, posts_expected: 15, threshold: 24, alert: false, review_status: "watch", source: "Demo", evidence_mode: "demo", geolocation_quality: "medium", signal_score: 0.42 },
+  { topic: "Pertussis", location: "Coimbra", date: "2024-03-11", posts_observed: 9, posts_expected: 8, threshold: 15, alert: false, review_status: "new", source: "Demo", evidence_mode: "demo", geolocation_quality: "medium", signal_score: 0.25 },
+  { topic: "Measles", location: "Faro", date: "2024-03-04", posts_observed: 14, posts_expected: 6, threshold: 11, alert: true, review_status: "watch", source: "Demo", evidence_mode: "demo", geolocation_quality: "high", signal_score: 0.83 },
+  { topic: "Measles", location: "Faro", date: "2024-03-11", posts_observed: 21, posts_expected: 7, threshold: 12, alert: true, review_status: "escalated", source: "Demo", evidence_mode: "demo", geolocation_quality: "high", signal_score: 0.94 },
+  { topic: "Measles", location: "Beja", date: "2024-03-11", posts_observed: 6, posts_expected: 5, threshold: 10, alert: false, review_status: "new", source: "Demo", evidence_mode: "demo", geolocation_quality: "low", signal_score: 0.18 },
+  { topic: "Respiratory symptoms", location: "Lisboa", date: "2024-03-04", posts_observed: 47, posts_expected: 41, threshold: 62, alert: false, review_status: "new", source: "Demo", evidence_mode: "demo", geolocation_quality: "medium", signal_score: 0.33 },
+  { topic: "Respiratory symptoms", location: "Porto", date: "2024-03-11", posts_observed: 58, posts_expected: 45, threshold: 67, alert: false, review_status: "watch", source: "Demo", evidence_mode: "demo", geolocation_quality: "medium", signal_score: 0.46 }
 ];
 
 export function summarizeEpisomerAggregates(rows: EpisomerAggregate[]) {
@@ -167,7 +183,7 @@ export function episomerAggregatesToJson(rows: EpisomerAggregate[]): string {
       upstream: "https://github.com/EU-ECDC/episomer",
       worker_status: "offline",
       live_collection: false,
-      contract: "topic/location/date/posts_observed/posts_expected/threshold/alert/review_status",
+      contract: "topic/location/date/posts_observed/posts_expected/threshold/alert/review_status/evidence_mode",
       note: "Synthetic aggregates only. Open-news RSS collection is optional, and no raw article contents or personal data are stored in the browser.",
       rows
     },

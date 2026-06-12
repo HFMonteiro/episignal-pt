@@ -44,10 +44,17 @@ const copy = {
     all: "Todos",
     export: "Exportar agregados JSON",
     collectLive: "Recolher live 10s",
+    testRss: "Testar RSS público",
     collecting: "A recolher...",
     liveResults: "Resultados live",
     liveArticles: "Artigos recolhidos",
-    liveFallback: "Ainda sem recolha live nesta sessão.",
+    liveFallback: "Ainda sem teste RSS nesta sessão. Execute um teste para ver links públicos e agregados de preview.",
+    liveMicrocopy: "Teste sem persistência: a interface mostra links/metadados públicos e não guarda conteúdo bruto.",
+    liveMetadata: "Metadata da recolha",
+    noRawContent: "Sem conteúdo bruto, identificadores pessoais ou persistência no browser.",
+    approximateBaseline: "Baseline/limiar aproximados para triagem de preview; não são limiares epidemiológicos validados.",
+    evidenceMode: "Modo de evidência",
+    readiness: "Prontidão",
     statusTitle: "Estado da integração",
     status: "Estado técnico",
     statusDetail: "A visualização abaixo começa com agregados sintéticos. O botão live executa uma recolha curta de RSS públicos; esta implementação é uma pré-visualização e não recolhe dados pessoais.",
@@ -106,10 +113,17 @@ const copy = {
     all: "All",
     export: "Export aggregates JSON",
     collectLive: "Collect live 10s",
+    testRss: "Test public RSS",
     collecting: "Collecting...",
     liveResults: "Live results",
     liveArticles: "Collected articles",
-    liveFallback: "No live collection in this session yet.",
+    liveFallback: "No RSS test in this session yet. Run a test to see public links and preview aggregates.",
+    liveMicrocopy: "Non-persistent test: the interface shows public links/metadata and does not store raw content.",
+    liveMetadata: "Collection metadata",
+    noRawContent: "No raw content, personal identifiers or browser persistence.",
+    approximateBaseline: "Approximate preview baseline/trigger; not a validated epidemiological threshold.",
+    evidenceMode: "Evidence mode",
+    readiness: "Readiness",
     statusTitle: "Integration status",
     status: "Technical status",
     statusDetail: "The view below starts with synthetic aggregates. The live button runs a short open-news collection from public RSS; no personal data is collected in this preview.",
@@ -170,6 +184,12 @@ function download(name: string, content: string, type: string) {
 function liveRowsToJson(result: EpisomerLiveResponse | null, rows: EpisomerAggregate[]): string {
   if (!result) return episomerAggregatesToJson(rows);
   return JSON.stringify(result, null, 2);
+}
+
+function chipClass(value: string): string {
+  if (value === "worker_output" || value === "escalated") return styles.episomerChipStrong;
+  if (value === "rss_preview" || value === "watch") return styles.episomerChipWatch;
+  return styles.episomerChip;
 }
 
 function EpisomerContent() {
@@ -286,6 +306,10 @@ function EpisomerContent() {
                   <strong>{status ? workerModeLabel : t.workerModeOff}</strong>
                   <small>{status?.r_worker_url ? t.workerModeConfigured : workerModeSource}</small>
                 </span>
+                <span>
+                  <strong>{status?.readiness_state ?? "demo_ready"}</strong>
+                  <small>{t.readiness}</small>
+                </span>
               </div>
               {statusError ? <p className={styles.alert}>{t.statusError}</p> : null}
               {status ? (
@@ -321,17 +345,23 @@ function EpisomerContent() {
                   />
                 </label>
                 <button type="button" disabled={isCollecting} onClick={collectLiveSignals}>
-                  {isCollecting ? t.collecting : t.collectLive}
+                  {isCollecting ? t.collecting : t.testRss}
                 </button>
               </div>
+              <p className={styles.somerStatusText}>{t.liveMicrocopy} {t.noRawContent}</p>
               <div className={styles.episomerProgress} aria-label={t.collecting}>
                 <span style={{ width: `${liveProgress}%` }} />
               </div>
               {liveError ? <p className={styles.alert}>{liveError}</p> : null}
               {liveResult ? (
-                <p className={styles.somerStatusText}>
-                  {t.liveResults}: {liveResult.articles.length} artigos, {liveResult.aggregates.length} agregados, {liveResult.seconds_elapsed}s. {liveResult.warning}
-                </p>
+                <div className={styles.episomerMetadata}>
+                  <strong>{t.liveMetadata}</strong>
+                  <span>{t.liveResults}: {liveResult.articles.length} artigos, {liveResult.aggregates.length} agregados, {liveResult.seconds_elapsed}s.</span>
+                  <span>RSS: {liveResult.rss_status}; total {liveResult.total_items}; unique {liveResult.unique_items}; duplicates {liveResult.duplicate_items}; fetched {liveResult.fetched_at}</span>
+                  {liveResult.empty_reason ? <span>{liveResult.empty_reason}</span> : null}
+                  <em>{liveResult.warning}</em>
+                  <em>{t.approximateBaseline}</em>
+                </div>
               ) : (
                 <p className={styles.somerStatusText}>{t.liveFallback}</p>
               )}
@@ -385,7 +415,7 @@ function EpisomerContent() {
                           <b style={{ width: `${Math.max(3, (row.posts_observed / chartMax) * 100)}%` }} />
                           <i style={{ left: `${Math.min(100, (row.threshold / chartMax) * 100)}%` }} />
                         </div>
-                        <em>{row.posts_observed}/{row.threshold}</em>
+                        <em>{row.posts_observed}/{row.threshold} · {row.evidence_mode}</em>
                       </div>
                     ))}
                   </div>
@@ -402,6 +432,7 @@ function EpisomerContent() {
                         <th>location</th>
                         <th>date</th>
                         <th>observed</th>
+                        <th>{t.evidenceMode}</th>
                         <th>alert</th>
                         <th>review</th>
                       </tr>
@@ -413,8 +444,9 @@ function EpisomerContent() {
                           <td>{row.location}</td>
                           <td>{row.date}</td>
                           <td>{row.posts_observed}</td>
-                          <td>{row.alert ? "yes" : "no"}</td>
-                          <td>{row.review_status}</td>
+                          <td><span className={chipClass(row.evidence_mode)}>{row.evidence_mode}</span></td>
+                          <td><span className={row.alert ? styles.episomerChipStrong : styles.episomerChip}>{row.alert ? "yes" : "no"}</span></td>
+                          <td><span className={chipClass(row.review_status)}>{row.review_status}</span></td>
                         </tr>
                       ))}
                     </tbody>
@@ -428,6 +460,7 @@ function EpisomerContent() {
             <h3 id="episomer-live-articles">{t.liveArticles}</h3>
             {liveResult ? (
               <div className={styles.episomerArticleList}>
+                <p className={styles.somerStatusText}>{t.noRawContent}</p>
                 {liveResult.articles.map((article) => (
                   <article key={article.url}>
                     <a href={article.url} target="_blank" rel="noreferrer">{article.title}</a>

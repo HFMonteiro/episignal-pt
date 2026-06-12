@@ -1,81 +1,16 @@
 import { NextResponse } from "next/server";
 
 import type { EpisomerAggregate, EpisomerLiveArticle, EpisomerLiveResponse } from "@/lib/episomer";
+import { normaliseEpisomerTopic, parseGoogleNewsRss, toAggregateRows } from "@/lib/episomerRss";
 
 export const dynamic = "force-dynamic";
 
-function normaliseTopic(value: string | null): string {
-  const topic = (value ?? "").trim();
-  return topic.length > 0 ? topic.slice(0, 90) : "pertussis OR measles OR outbreak";
-}
-
-function uniqueArticles(articles: EpisomerLiveArticle[]): EpisomerLiveArticle[] {
-  const seen = new Set<string>();
-  return articles.filter((article) => {
-    const key = article.url || `${article.title}-${article.source_domain}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
-function decodeXml(value: string): string {
-  return value
-    .replaceAll("<![CDATA[", "")
-    .replaceAll("]]>", "")
-    .replaceAll("&amp;", "&")
-    .replaceAll("&quot;", "\"")
-    .replaceAll("&#39;", "'")
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">")
-    .trim();
-}
-
-function textBetween(value: string, tag: string): string {
-  const match = value.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i"));
-  return match ? decodeXml(match[1]) : "";
-}
-
-function extractDomain(url: string): string {
-  try {
-    const parsed = new URL(url);
-    return parsed.host.replace(/^www\./, "");
-  } catch {
-    return "Open news";
-  }
-}
-
-function toAggregateRows(topic: string, articles: EpisomerLiveArticle[]): EpisomerAggregate[] {
-  const byLocation = new Map<string, number>();
-  for (const article of articles) {
-    const location = article.source_country || article.source_domain || "Unknown";
-    byLocation.set(location, (byLocation.get(location) ?? 0) + 1);
-  }
-
-  const now = new Date().toISOString().slice(0, 10);
-  const values = [...byLocation.entries()].sort((a, b) => b[1] - a[1]);
-  const mean = values.length ? values.reduce((sum, [, count]) => sum + count, 0) / values.length : 0;
-
-  return values.map(([location, observed]) => {
-    const expected = Math.max(1, Math.round(mean * 0.75));
-    const threshold = Math.max(3, expected + 2);
-    return {
-      topic,
-      location,
-      date: now,
-      posts_observed: observed,
-      posts_expected: expected,
-      threshold,
-      alert: observed >= threshold,
-      review_status: observed >= threshold ? "watch" : "new",
-      source: "OpenNews",
-      geolocation_quality: location === "Unknown" ? "low" : "medium",
-      signal_score: Math.min(1, observed / Math.max(1, threshold))
-    };
-  });
-}
-
-async function fetchRssArticles(topic: string): Promise<EpisomerLiveArticle[]> {
+async function fetchRssArticles(topic: string): Promise<{
+  articles: EpisomerLiveArticle[];
+  totalItems: number;
+  uniqueItems: number;
+  duplicateItems: number;
+}> {
   const params = new URLSearchParams({
     q: topic,
     hl: "en-GB",
@@ -91,28 +26,23 @@ async function fetchRssArticles(topic: string): Promise<EpisomerLiveArticle[]> {
   if (!response.ok) throw new Error(`Google News RSS returned ${response.status}`);
 
   const xml = await response.text();
-  const itemMatches = xml.match(/<item>[\s\S]*?<\/item>/gi) ?? [];
-  return itemMatches.slice(0, 80).map((item) => {
-    const title = textBetween(item, "title");
-    return {
-      title,
-      url: textBetween(item, "link"),
-      source_domain: extractDomain(textBetween(item, "link")),
-      source_country: "Open news",
-      language: "mixed",
-      seen_at: textBetween(item, "pubDate")
-    };
-  }).filter((article) => article.url && article.title);
+  return parseGoogleNewsRss(xml);
 }
 
 export async function GET(request: Request) {
   const started = Date.now();
+  const fetchedAt = new Date().toISOString();
   const { searchParams } = new URL(request.url);
-  const topic = normaliseTopic(searchParams.get("topic"));
+  const topic = normaliseEpisomerTopic(searchParams.get("topic"));
   const requestedSeconds = Math.min(10, Math.max(3, Number(searchParams.get("seconds") ?? 10)));
 
   let aggregates: EpisomerAggregate[] = [];
   let articles: EpisomerLiveArticle[] = [];
+  let totalItems = 0;
+  let uniqueItems = 0;
+  let duplicateItems = 0;
+  let emptyReason: string | null = null;
+  let rssStatus: EpisomerLiveResponse["rss_status"] = "ok";
   const warning = "Open-news RSS live scan. This is event-based information and not a substitute for validated epidemiological investigation.";
 
   if (requestedSeconds > 3) {
@@ -120,10 +50,20 @@ export async function GET(request: Request) {
   }
 
   try {
-    articles = uniqueArticles(await fetchRssArticles(topic)).slice(0, 80);
+    const parsed = await fetchRssArticles(topic);
+    articles = parsed.articles.slice(0, 80);
+    totalItems = parsed.totalItems;
+    uniqueItems = parsed.uniqueItems;
+    duplicateItems = parsed.duplicateItems;
     aggregates = toAggregateRows(topic, articles);
+    if (articles.length === 0) {
+      rssStatus = "empty";
+      emptyReason = "Google News RSS returned no usable article links for this topic.";
+    }
   } catch (error) {
     console.error("RSS fetch failed", error);
+    rssStatus = "error";
+    emptyReason = error instanceof Error ? error.message : "RSS fetch failed";
     articles = [];
     aggregates = [];
   }
@@ -131,8 +71,14 @@ export async function GET(request: Request) {
   const response: EpisomerLiveResponse = {
     mode: "open_news_live",
     source: "GoogleNewsRSS",
+    fetched_at: fetchedAt,
     topic,
     query: topic,
+    total_items: totalItems,
+    unique_items: uniqueItems,
+    duplicate_items: duplicateItems,
+    empty_reason: emptyReason,
+    rss_status: rssStatus,
     seconds_requested: requestedSeconds,
     seconds_elapsed: Math.round((Date.now() - started) / 100) / 10,
     generated_at: new Date().toISOString(),

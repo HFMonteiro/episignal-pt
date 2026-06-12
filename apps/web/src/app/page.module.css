@@ -2103,6 +2103,10 @@
   border-left-color: #3d5b98;
 }
 
+.somerStatusGrid span:nth-child(4) {
+  border-left-color: #0f766e;
+}
+
 .somerStatusGrid strong {
   color: #10213d;
   font-size: 0.94rem;
@@ -2266,6 +2270,31 @@
   transition: width 0.24s ease;
 }
 
+.episomerMetadata {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  border: 1px solid #d9e2f0;
+  border-radius: 10px;
+  background: #fbfdff;
+  color: #344054;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  padding: 11px 12px;
+}
+
+.episomerMetadata strong {
+  color: #10213d;
+  font-size: 0.74rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.episomerMetadata em {
+  color: #667085;
+  font-style: normal;
+}
+
 .episomerMetricGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -2357,6 +2386,34 @@
   color: #172033;
   font-size: 0.72rem;
   text-transform: uppercase;
+}
+
+.episomerChip,
+.episomerChipWatch,
+.episomerChipStrong {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  border: 1px solid #d9e2f0;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #344054;
+  font-size: 0.72rem;
+  font-weight: 900;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.episomerChipWatch {
+  border-color: #fedf89;
+  background: #fffaeb;
+  color: #93370d;
+}
+
+.episomerChipStrong {
+  border-color: #fecdca;
+  background: #fef3f2;
+  color: #b42318;
 }
 
 .episomerArticleList {
